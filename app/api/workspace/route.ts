@@ -3,13 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
   const supabase = await createClient();
-  const { data: claims, error: claimsError } = await supabase.auth.getClaims();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
 
-  if (claimsError || !claims?.claims?.sub) {
+  if (userError || !userData.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const userId = claims.claims.sub as string;
+  const userId = userData.user.id;
   const { data: memberships, error } = await supabase
     .from("workspace_members")
     .select("workspace_id, role")
@@ -38,9 +38,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { data: claims, error: claimsError } = await supabase.auth.getClaims();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
 
-  if (claimsError || !claims?.claims?.sub) {
+  if (userError || !userData.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     .from("workspace_members")
     .insert({
       workspace_id: workspace.id,
-      user_id: claims.claims.sub as string,
+      user_id: userData.user.id,
       role: "owner",
     });
 
