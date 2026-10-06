@@ -28,15 +28,26 @@ export async function GET(request: Request) {
   const membership = await getWorkspaceAccess(supabase, user.id, workspaceId);
   if (!membership) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { data: brand, error } = await supabase
+  const { data: baseBrand, error } = await supabase
     .from("brands")
-    .select("id, workspace_id, name, voice, description, audience, pillars, do_rules, cta_style, forbidden_topics, hashtag_strategy, example_posts, platform_guidance, created_at")
+    .select("id, workspace_id, name, voice, description, audience, created_at")
     .eq("workspace_id", workspaceId)
     .order("created_at")
     .limit(1)
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  let brand = baseBrand;
+  if (baseBrand) {
+    const { data: enrichedBrand, error: enrichedError } = await supabase
+      .from("brands")
+      .select("id, workspace_id, name, voice, description, audience, pillars, do_rules, cta_style, forbidden_topics, hashtag_strategy, example_posts, platform_guidance, created_at")
+      .eq("id", baseBrand.id)
+      .maybeSingle();
+    if (!enrichedError) brand = enrichedBrand;
+  }
+
   return NextResponse.json({ brand: brand ?? null, role: membership.role });
 }
 
