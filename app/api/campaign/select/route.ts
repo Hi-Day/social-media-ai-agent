@@ -26,9 +26,10 @@ export async function POST(req: Request) {
       .eq("campaign_id", campaignId).eq("workspace_id", workspaceId).eq("code", packageCode).single();
     if (packageError || !pkg) return NextResponse.json({ error: "Campaign package not found." }, { status: 404 });
 
-    const { data: campaign } = await supabase.from("campaigns").select("id,name,objective,status")
+    const { data: campaign } = await supabase.from("campaigns").select("id,name,objective,status,selected_package")
       .eq("id", campaignId).eq("workspace_id", workspaceId).single();
     if (!campaign) return NextResponse.json({ error: "Campaign not found." }, { status: 404 });
+    if (campaign.selected_package) return NextResponse.json({ error: "A package is already selected for this campaign." }, { status: 409 });
 
     const plan = Array.isArray(pkg.content_plan) ? pkg.content_plan : [];
     const rows = plan.flatMap((item: {
