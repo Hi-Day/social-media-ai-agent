@@ -26,12 +26,22 @@ export async function GET() {
   const workspaceId = memberships[0].workspace_id;
   const [{ data: workspace }, { data: brands }] = await Promise.all([
     supabase.from("workspaces").select("id, name, created_at").eq("id", workspaceId).single(),
-    supabase.from("brands").select("id, name, voice, description, audience, pillars, do_rules, cta_style, forbidden_topics, hashtag_strategy, example_posts, platform_guidance").eq("workspace_id", workspaceId).order("created_at").limit(1),
+    supabase.from("brands").select("id, name, voice, description, audience").eq("workspace_id", workspaceId).order("created_at").limit(1),
   ]);
+
+  let brand = brands?.[0] ?? null;
+  if (brand) {
+    const { data: enrichedBrand, error: enrichedError } = await supabase
+      .from("brands")
+      .select("id, name, voice, description, audience, pillars, do_rules, cta_style, forbidden_topics, hashtag_strategy, example_posts, platform_guidance")
+      .eq("id", brand.id)
+      .maybeSingle();
+    if (!enrichedError) brand = enrichedBrand ?? brand;
+  }
 
   return NextResponse.json({
     workspace,
-    brand: brands?.[0] ?? null,
+    brand,
     role: memberships[0].role,
   });
 }
