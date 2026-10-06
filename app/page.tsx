@@ -40,6 +40,8 @@ type Draft = {
   status: string;
   created_at: string;
   updated_at: string;
+  generation_status?: string;
+  generation_error?: string | null;
 };
 
 const stats = [
@@ -686,7 +688,7 @@ export default function Home() {
                 <div className="draft-row" key={draft.id}>
                   <div className="draft-copy">
                     <b>{draft.title || "Untitled draft"}</b>
-                    <small>{draft.platform || "Multi-platform"} · Updated {new Date(draft.updated_at).toLocaleString()}</small>
+                    <small>{draft.platform || "Multi-platform"} · {draft.generation_status && draft.generation_status !== "pending" ? statusLabel(draft.generation_status) + " · " : ""}Updated {new Date(draft.updated_at).toLocaleString()}</small>
                     <p>{draft.caption}</p>
                   </div>
                   <div className="draft-actions">
