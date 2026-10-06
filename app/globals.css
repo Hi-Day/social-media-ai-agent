@@ -25,22 +25,20 @@
   nav{
     display:flex;
     align-items:stretch;
-    justify-content:flex-start;
+    justify-content:center;
     gap:4px;
     height:54px;
-    overflow-x:auto;
-    scrollbar-width:none;
   }
-  nav::-webkit-scrollbar{display:none}
-  nav button,
+  nav button:not(.active){display:none}
   nav button.active{
     display:flex;
-    flex:0 0 auto;
-    min-width:76px;
+    width:100%;
     justify-content:center;
-    padding:8px 10px;
+    align-items:center;
+    padding:8px 14px;
     border-radius:9px;
-    color:#8f9aa8;
+    color:#fff;
+    background:#202730;
   }
   nav button.active{background:#202730;color:#fff}
   nav button:hover{background:#1b2129;color:#fff}
