@@ -102,19 +102,41 @@ export async function PUT(request: Request) {
     .limit(1)
     .maybeSingle();
 
-  const payload = {
-    name,
-    voice: voice || null,
-    description: description || null,
-    audience: audience || null,
-    pillars: pillars || null,
-    do_rules: doRules || null,
-    cta_style: ctaStyle || null,
-    forbidden_topics: forbiddenTopics || null,
-    hashtag_strategy: hashtagStrategy || null,
-    example_posts: examplePosts || null,
-    platform_guidance: platformGuidance || null,
-  };
+  const advancedValues = [pillars, doRules, ctaStyle, forbiddenTopics, hashtagStrategy, examplePosts, platformGuidance];
+  const { error: schemaProbeError } = await supabase
+    .from("brands")
+    .select("pillars")
+    .eq("workspace_id", workspaceId)
+    .limit(1);
+
+  const advancedAvailable = !schemaProbeError || !schemaProbeError.message.toLowerCase().includes("does not exist");
+  if (!advancedAvailable && advancedValues.some(Boolean)) {
+    return NextResponse.json(
+      { error: "Advanced Brand Brain is waiting for migration 004. Basic brand settings remain available." },
+      { status: 409 },
+    );
+  }
+
+  const payload = advancedAvailable
+    ? {
+        name,
+        voice: voice || null,
+        description: description || null,
+        audience: audience || null,
+        pillars: pillars || null,
+        do_rules: doRules || null,
+        cta_style: ctaStyle || null,
+        forbidden_topics: forbiddenTopics || null,
+        hashtag_strategy: hashtagStrategy || null,
+        example_posts: examplePosts || null,
+        platform_guidance: platformGuidance || null,
+      }
+    : {
+        name,
+        voice: voice || null,
+        description: description || null,
+        audience: audience || null,
+      };
   const query = existing
     ? supabase.from("brands").update(payload).eq("id", existing.id)
     : supabase.from("brands").insert({ workspace_id: workspaceId, ...payload });
