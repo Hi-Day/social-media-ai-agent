@@ -144,13 +144,22 @@ export default function LoginPage() {
           {error && <div className="auth-message error">{error}</div>}
           {message && <div className="auth-message success">{message}</div>}
 
-          <button type="button" className="primary auth-submit" onClick={tryDemo} disabled={loading || demoLoading}>
-          {demoLoading ? "Starting demo…" : "Try Demo"}
-        </button>
+          <button className="primary auth-submit" disabled={loading || demoLoading}>
+            {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+          </button>
 
-        <div className="auth-divider"><span>or use an account</span></div>
+          <div className="auth-divider"><span>or</span></div>
 
-        <button className="primary auth-submit" disabled={loading || demoLoading}>
+          <button
+            type="button"
+            className="demo-submit auth-submit"
+            onClick={tryDemo}
+            disabled={loading || demoLoading}
+          >
+            <Sparkles size={14} />
+            <span>{demoLoading ? "Starting demo…" : "Try Demo"}</span>
+            {!demoLoading && <small>No account required</small>}
+          </button>
             {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
           </button>
         </form>
