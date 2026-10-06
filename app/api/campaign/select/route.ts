@@ -49,7 +49,7 @@ export async function POST(req: Request) {
         package_id: pkg.id,
         content_type: item.type || "Content",
         model_codename: codename,
-        estimated_credits: profile?.credits ?? Number(item.credits_per_asset) || 0,
+        estimated_credits: profile?.credits ?? (Number(item.credits_per_asset) || 0),
       }));
     });
 
