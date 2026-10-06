@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import {
   CalendarDays,
   ChevronRight,
@@ -62,6 +64,77 @@ export default function Home() {
   const [idea, setIdea] = useState("");
   const [generated, setGenerated] = useState("");
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState("");
+  const [workspaceId, setWorkspaceId] = useState("");
+  const [workspaceName, setWorkspaceName] = useState("My Workspace");
+  const [userEmail, setUserEmail] = useState("");
+
+  const router = useRouter();
+
+  useEffect(() => {
+    let mounted = true;
+    const supabase = createClient();
+
+    async function loadWorkspace() {
+      try {
+        const { data, error } = await supabase.auth.getUser();
+
+        if (error || !data.user) {
+          router.replace("/login");
+          return;
+        }
+
+        if (!mounted) return;
+        setUserEmail(data.user.email ?? "");
+
+        let response = await fetch("/api/workspace", { cache: "no-store" });
+        let workspaceData = await response.json();
+
+        if (response.ok && !workspaceData.workspace) {
+          response = await fetch("/api/workspace", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              name:
+                typeof data.user.user_metadata?.workspace_name === "string"
+                  ? data.user.user_metadata.workspace_name
+                  : "My Workspace",
+            }),
+          });
+          workspaceData = await response.json();
+        }
+
+        if (!response.ok || !workspaceData.workspace) {
+          throw new Error(workspaceData.error || "Unable to load workspace.");
+        }
+
+        if (!mounted) return;
+        setWorkspaceId(workspaceData.workspace.id);
+        setWorkspaceName(workspaceData.workspace.name);
+      } catch (error) {
+        if (mounted) {
+          setAuthError(error instanceof Error ? error.message : "Unable to load account.");
+        }
+      } finally {
+        if (mounted) setAuthLoading(false);
+      }
+    }
+
+    loadWorkspace();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") router.replace("/login");
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [router]);
 
   async function generate() {
     if (!idea.trim()) return;
@@ -79,6 +152,51 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function saveDraft() {
+    if (!workspaceId || !idea.trim() || !generated.trim()) return;
+
+    setSaving(true);
+    try {
+      const response = await fetch("/api/content/drafts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          workspaceId,
+          idea,
+          caption: generated,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to save draft.");
+      setGenerated(data.draft?.caption || generated);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Unable to save draft.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (authLoading) {
+    return (
+      <main className="auth-loading">
+        <Sparkles size={22} />
+        <span>Loading your workspace…</span>
+      </main>
+    );
+  }
+
+  if (authError && !workspaceId) {
+    return (
+      <main className="auth-loading">
+        <Sparkles size={22} />
+        <span>{authError}</span>
+        <button className="primary" onClick={() => router.push("/login")}>
+          Back to sign in
+        </button>
+      </main>
+    );
   }
 
   return (
@@ -152,8 +270,8 @@ export default function Home() {
           <div className="workspace">
             <div className="avatar">HD</div>
             <div>
-              <b>Hidayaturrahman</b>
-              <small>Personal workspace</small>
+              <b>{workspaceName}</b>
+              <small>{userEmail}</small>
             </div>
           </div>
         </div>
@@ -332,11 +450,18 @@ export default function Home() {
                 </div>
                 <p>{generated}</p>
                 <div className="result-actions">
-                  <button>Save draft</button>
-                  <button className="primary">
+                  <button onClick={saveDraft} disabled={saving}>
+                    {saving ? "Saving…" : "Save draft"}
+                  </button>
+                  <button className="primary" disabled>
                     Send to approval <ChevronRight size={15} />
                   </button>
                 </div>
+                {authError && (
+                  <div className="auth-message error" style={{ marginTop: 12 }}>
+                    {authError}
+                  </div>
+                )}
               </div>
             )}
           </div>
