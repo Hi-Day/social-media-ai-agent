@@ -56,6 +56,9 @@ export async function POST(
       .single();
 
     if (approvalError) {
+      if (approvalError.code === "23505") {
+        return NextResponse.json({ error: "Draft already has a pending approval." }, { status: 409 });
+      }
       return NextResponse.json({ error: approvalError.message }, { status: 500 });
     }
 
