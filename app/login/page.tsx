@@ -14,6 +14,32 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
+
+  async function tryDemo() {
+    setDemoLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const supabase = createClient();
+      const { error: demoError } = await supabase.auth.signInAnonymously();
+      if (demoError) throw demoError;
+      await supabase.auth.updateUser({
+        data: { workspace_name: "SocialOS Demo Workspace" },
+      });
+      router.replace("/");
+      router.refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? `Demo mode is not enabled yet. In Supabase, enable Authentication → Providers → Anonymous. Details: ${err.message}`
+          : "Unable to start demo mode.",
+      );
+    } finally {
+      setDemoLoading(false);
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -118,7 +144,13 @@ export default function LoginPage() {
           {error && <div className="auth-message error">{error}</div>}
           {message && <div className="auth-message success">{message}</div>}
 
-          <button className="primary auth-submit" disabled={loading}>
+          <button type="button" className="primary auth-submit" onClick={tryDemo} disabled={loading || demoLoading}>
+          {demoLoading ? "Starting demo…" : "Try Demo"}
+        </button>
+
+        <div className="auth-divider"><span>or use an account</span></div>
+
+        <button className="primary auth-submit" disabled={loading || demoLoading}>
             {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
           </button>
         </form>
