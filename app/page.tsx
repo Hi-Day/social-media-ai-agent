@@ -24,6 +24,7 @@ const navigation = [
   { icon: LayoutDashboard, name: "Overview" },
   { icon: CalendarDays, name: "Content Calendar" },
   { icon: BrainCircuit, name: "AI Studio" },
+  { icon: Sparkles, name: "Campaigns" },
   { icon: MessageSquare, name: "Engagement" },
   { icon: TrendingUp, name: "Analytics" },
   { icon: Users, name: "Audience" },
@@ -56,6 +57,12 @@ export default function Home() {
   const [tab, setTab] = useState("Overview");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [idea, setIdea] = useState("");
+  const [campaignName, setCampaignName] = useState("");
+  const [campaignObjective, setCampaignObjective] = useState("");
+  const [campaignAudience, setCampaignAudience] = useState("");
+  const [campaignMode, setCampaignMode] = useState<"automatic" | "manual">("automatic");
+  const [campaignPackages, setCampaignPackages] = useState<Array<{code:string;name:string;description:string;estimated_credits:number;estimated_duration_minutes:number;recommended:boolean;content_plan:Array<{platform:string;type:string;count:number;codename:string}>}>>([]);
+  const [campaignLoading, setCampaignLoading] = useState(false);
   const [generated, setGenerated] = useState("");
   const [draftId, setDraftId] = useState("");
   const [draftStatus, setDraftStatus] = useState("draft");
@@ -286,6 +293,32 @@ export default function Home() {
       setAuthError(error instanceof Error ? error.message : "Review action failed.");
     } finally {
       setReviewing(false);
+    }
+  }
+
+  async function planCampaign() {
+    if (!workspaceId || !campaignName.trim() || !campaignObjective.trim()) return;
+    setCampaignLoading(true);
+    setAuthError("");
+    try {
+      const response = await fetch("/api/campaign/plan", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          workspaceId,
+          name: campaignName,
+          objective: campaignObjective,
+          audience: campaignAudience,
+          modelMode: campaignMode,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to plan campaign.");
+      setCampaignPackages(data.packages ?? []);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Unable to plan campaign.");
+    } finally {
+      setCampaignLoading(false);
     }
   }
 
@@ -520,6 +553,56 @@ export default function Home() {
                   )}
                 </div>
                 {authError && <div className="auth-message error" style={{ marginTop: 12 }}>{authError}</div>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "Campaigns" && (
+          <div className="campaign-view">
+            <div className="studio-copy">
+              <span className="eyebrow">CAMPAIGN PLANNER</span>
+              <h2>Plan the campaign,<br />not just the caption.</h2>
+              <p>The agent turns your objective into content packages, model choices and an estimated AI budget.</p>
+            </div>
+            <div className="campaign-form panel">
+              <div className="form-section">
+                <label>Campaign name<input value={campaignName} onChange={(e) => setCampaignName(e.target.value)} placeholder="e.g. New Product Launch" /></label>
+                <label>Audience<textarea value={campaignAudience} onChange={(e) => setCampaignAudience(e.target.value)} placeholder="Who should this campaign reach?" /></label>
+              </div>
+              <label className="campaign-objective">Objective<textarea value={campaignObjective} onChange={(e) => setCampaignObjective(e.target.value)} placeholder="e.g. Build awareness and drive qualified registrations for our new AI course." /></label>
+              <div className="model-mode">
+                <div><b>Model selection</b><small>Use product codenames only. Underlying models stay behind the registry.</small></div>
+                <div className="mode-buttons">
+                  <button className={campaignMode === "automatic" ? "selected" : ""} onClick={() => setCampaignMode("automatic")}>🤖 Campaign Agent decides</button>
+                  <button className={campaignMode === "manual" ? "selected" : ""} onClick={() => setCampaignMode("manual")}>Manual tiers</button>
+                </div>
+              </div>
+              <div className="brand-form-foot">
+                <span>Three package options will be estimated before execution.</span>
+                <button className="primary" onClick={planCampaign} disabled={campaignLoading}>{campaignLoading ? "Planning…" : "Generate campaign options"}</button>
+              </div>
+              {authError && <div className="auth-message error">{authError}</div>}
+            </div>
+
+            {campaignPackages.length > 0 && (
+              <div className="package-grid">
+                {campaignPackages.map((pkg) => (
+                  <div className={`package-card ${pkg.recommended ? "recommended" : ""}`} key={pkg.code}>
+                    {pkg.recommended && <span className="package-badge">RECOMMENDED</span>}
+                    <small>CAMPAIGN PACKAGE</small>
+                    <h3>{pkg.name}</h3>
+                    <p>{pkg.description}</p>
+                    <div className="package-cost"><strong>{pkg.estimated_credits}</strong><span>credits est.</span></div>
+                    <div className="package-time">~{pkg.estimated_duration_minutes} min generation</div>
+                    <div className="package-items">
+                      {pkg.content_plan.map((item, index) => (
+                        <div key={index}><span>{item.count}× {item.platform} {item.type}</span><b>{item.codename}</b></div>
+                      ))}
+                    </div>
+                    <button className={pkg.recommended ? "primary" : ""}>Choose {pkg.name}</button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
