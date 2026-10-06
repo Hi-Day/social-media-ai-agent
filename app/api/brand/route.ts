@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
   const { data: brand, error } = await supabase
     .from("brands")
-    .select("id, workspace_id, name, voice, description, audience, created_at")
+    .select("id, workspace_id, name, voice, description, audience, pillars, do_rules, cta_style, forbidden_topics, hashtag_strategy, example_posts, platform_guidance, created_at")
     .eq("workspace_id", workspaceId)
     .order("created_at")
     .limit(1)
@@ -57,11 +57,29 @@ export async function PUT(request: Request) {
   const voice = typeof body.voice === "string" ? body.voice.trim() : "";
   const description = typeof body.description === "string" ? body.description.trim() : "";
   const audience = typeof body.audience === "string" ? body.audience.trim() : "";
+  const pillars = typeof body.pillars === "string" ? body.pillars.trim() : "";
+  const doRules = typeof body.doRules === "string" ? body.doRules.trim() : "";
+  const ctaStyle = typeof body.ctaStyle === "string" ? body.ctaStyle.trim() : "";
+  const forbiddenTopics = typeof body.forbiddenTopics === "string" ? body.forbiddenTopics.trim() : "";
+  const hashtagStrategy = typeof body.hashtagStrategy === "string" ? body.hashtagStrategy.trim() : "";
+  const examplePosts = typeof body.examplePosts === "string" ? body.examplePosts.trim() : "";
+  const platformGuidance = typeof body.platformGuidance === "string" ? body.platformGuidance.trim() : "";
 
   if (name.length < 2 || name.length > 120) {
     return NextResponse.json({ error: "Brand name must be between 2 and 120 characters." }, { status: 400 });
   }
-  if (voice.length > 4000 || description.length > 4000 || audience.length > 2000) {
+  if (
+    voice.length > 4000 ||
+    description.length > 4000 ||
+    audience.length > 2000 ||
+    pillars.length > 3000 ||
+    doRules.length > 4000 ||
+    ctaStyle.length > 1500 ||
+    forbiddenTopics.length > 3000 ||
+    hashtagStrategy.length > 2000 ||
+    examplePosts.length > 8000 ||
+    platformGuidance.length > 4000
+  ) {
     return NextResponse.json({ error: "Brand Brain fields are too long." }, { status: 400 });
   }
 
@@ -73,7 +91,19 @@ export async function PUT(request: Request) {
     .limit(1)
     .maybeSingle();
 
-  const payload = { name, voice: voice || null, description: description || null, audience: audience || null };
+  const payload = {
+    name,
+    voice: voice || null,
+    description: description || null,
+    audience: audience || null,
+    pillars: pillars || null,
+    do_rules: doRules || null,
+    cta_style: ctaStyle || null,
+    forbidden_topics: forbiddenTopics || null,
+    hashtag_strategy: hashtagStrategy || null,
+    example_posts: examplePosts || null,
+    platform_guidance: platformGuidance || null,
+  };
   const query = existing
     ? supabase.from("brands").update(payload).eq("id", existing.id)
     : supabase.from("brands").insert({ workspace_id: workspaceId, ...payload });
