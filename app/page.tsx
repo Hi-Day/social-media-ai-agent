@@ -62,7 +62,7 @@ export default function Home() {
   const [campaignAudience, setCampaignAudience] = useState("");
   const [campaignMode, setCampaignMode] = useState<"automatic" | "manual">("automatic");
   const [modelOverrides, setModelOverrides] = useState({ text: "Balance", image: "Balance", video: "Pro" });
-  const [campaignPackages, setCampaignPackages] = useState<Array<{code:string;name:string;description:string;estimated_credits:number;estimated_duration_minutes:number;recommended:boolean;content_plan:Array<{platform:string;type:string;count:number;codename:string}>}>>([]);
+  const [campaignPackages, setCampaignPackages] = useState<Array<{code:string;name:string;description:string;estimated_credits:number;estimated_duration_minutes:number;recommended:boolean;content_plan:Array<{platform:string;type:string;count:number;codename:string}>}>>([]);\n  const [campaignId, setCampaignId] = useState("");\n  const [selectedPackage, setSelectedPackage] = useState("");
   const [campaignLoading, setCampaignLoading] = useState(false);
   const [generated, setGenerated] = useState("");
   const [draftId, setDraftId] = useState("");
@@ -297,6 +297,28 @@ export default function Home() {
     }
   }
 
+  async function chooseCampaignPackage(code: string) {
+    if (!workspaceId || !campaignId || selectedPackage) return;
+    setCampaignLoading(true);
+    setAuthError("");
+    try {
+      const response = await fetch("/api/campaign/select", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ workspaceId, campaignId, packageCode: code }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to select campaign package.");
+      setSelectedPackage(code);
+      setAuthError("");
+      await loadDrafts();
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Unable to select campaign package.");
+    } finally {
+      setCampaignLoading(false);
+    }
+  }
+
   async function planCampaign() {
     if (!workspaceId || !campaignName.trim() || !campaignObjective.trim()) return;
     setCampaignLoading(true);
@@ -316,7 +338,7 @@ export default function Home() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to plan campaign.");
-      setCampaignPackages(data.packages ?? []);
+      setCampaignId(data.campaign?.id ?? "");\n      setSelectedPackage("");\n      setCampaignPackages(data.packages ?? []);
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Unable to plan campaign.");
     } finally {
@@ -595,14 +617,14 @@ export default function Home() {
                     <small>CAMPAIGN PACKAGE</small>
                     <h3>{pkg.name}</h3>
                     <p>{pkg.description}</p>
-                    <div className="package-cost"><strong>{pkg.estimated_credits}</strong><span>credits est.</span></div>
+                    <div className="package-cost"><strong>{pkg.estimated_credits}</strong><span>credits est.</span></div>\n                    {selectedPackage === pkg.code && <div className="package-selected">✓ Selected — content tasks created</div>}
                     <div className="package-time">~{pkg.estimated_duration_minutes} min generation</div>
                     <div className="package-items">
                       {pkg.content_plan.map((item, index) => (
                         <div key={index}><span>{item.count}× {item.platform} {item.type}</span><b>{item.codename}</b></div>
                       ))}
                     </div>
-                    <button className={pkg.recommended ? "primary" : ""}>Choose {pkg.name}</button>
+                    <button className={pkg.recommended ? "primary" : ""} disabled={campaignLoading || Boolean(selectedPackage)} onClick={() => chooseCampaignPackage(pkg.code)}>{selectedPackage === pkg.code ? "Selected" : `Choose ${pkg.name}`}</button>
                   </div>
                 ))}
               </div>
