@@ -150,6 +150,12 @@ export default function LoginPage() {
 
           <div className="auth-divider"><span>or</span></div>
 
+          <button className="primary auth-submit" disabled={loading || demoLoading}>
+            {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+          </button>
+
+          <div className="auth-divider"><span>or</span></div>
+
           <button
             type="button"
             className="demo-submit auth-submit"
@@ -159,8 +165,6 @@ export default function LoginPage() {
             <Sparkles size={14} />
             <span>{demoLoading ? "Starting demo…" : "Try Demo"}</span>
             {!demoLoading && <small>No account required</small>}
-          </button>
-            {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
           </button>
         </form>
 
