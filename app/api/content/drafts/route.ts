@@ -3,10 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 
 async function getAuthenticatedClient() {
   const supabase = await createClient();
-  const { data: claims, error } = await supabase.auth.getClaims();
+  const { data, error } = await supabase.auth.getUser();
 
-  if (claims?.claims?.sub && !error) {
-    return { supabase, userId: claims.claims.sub as string };
+  if (data.user && !error) {
+    return { supabase, userId: data.user.id };
   }
 
   return { supabase, userId: null };
