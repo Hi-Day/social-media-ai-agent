@@ -40,7 +40,7 @@ export default function LoginPage() {
         password,
         options: {
           data: { workspace_name: workspace.trim() || "My Workspace" },
-          emailRedirectTo: window.location.origin + "/auth/callback",
+          emailRedirectTo: (process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, "") + "/auth/callback",
         },
       });
 
