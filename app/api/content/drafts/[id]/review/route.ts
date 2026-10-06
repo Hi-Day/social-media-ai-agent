@@ -34,6 +34,17 @@ export async function POST(
       return NextResponse.json({ error: "Draft is not ready for approval." }, { status: 409 });
     }
 
+    const { data: existingPending } = await supabase
+      .from("approvals")
+      .select("id, status")
+      .eq("content_draft_id", draft.id)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (existingPending) {
+      return NextResponse.json({ error: "Draft already has a pending approval." }, { status: 409 });
+    }
+
     const { data: approval, error: approvalError } = await supabase
       .from("approvals")
       .insert({
@@ -66,11 +77,26 @@ export async function POST(
     return NextResponse.json({ error: "Unsupported review action." }, { status: 400 });
   }
 
+  const { data: reviewerMembership } = await supabase
+    .from("workspace_members")
+    .select("role")
+    .eq("workspace_id", draft.workspace_id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!reviewerMembership || !["owner", "admin"].includes(reviewerMembership.role)) {
+    return NextResponse.json({ error: "Only workspace owners and admins can review content." }, { status: 403 });
+  }
+
   if (draft.status !== "in_review") {
     return NextResponse.json({ error: "Draft is not awaiting review." }, { status: 409 });
   }
 
-  const nextDraftStatus = action === "approve" ? "approved" : "rejected";
+  const nextDraftStatus = action === "approve"
+    ? "approved"
+    : action === "changes_requested"
+      ? "draft"
+      : "rejected";
   const nextApprovalStatus = action === "approve" ? "approved" : action;
 
   const { data: approval, error: approvalLookupError } = await supabase
