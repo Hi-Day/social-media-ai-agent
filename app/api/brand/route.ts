@@ -141,10 +141,21 @@ export async function PUT(request: Request) {
     ? supabase.from("brands").update(payload).eq("id", existing.id)
     : supabase.from("brands").insert({ workspace_id: workspaceId, ...payload });
 
-  const { data: brand, error } = await query
+  const { data: savedBrand, error } = await query
     .select("id, workspace_id, name, voice, description, audience, created_at")
     .single();
 
-  if (error || !brand) return NextResponse.json({ error: error?.message || "Unable to save Brand Brain." }, { status: 500 });
+  if (error || !savedBrand) return NextResponse.json({ error: error?.message || "Unable to save Brand Brain." }, { status: 500 });
+
+  let brand = savedBrand;
+  if (advancedAvailable) {
+    const { data: enrichedBrand } = await supabase
+      .from("brands")
+      .select("id, workspace_id, name, voice, description, audience, pillars, do_rules, cta_style, forbidden_topics, hashtag_strategy, example_posts, platform_guidance, created_at")
+      .eq("id", savedBrand.id)
+      .single();
+    brand = enrichedBrand ?? savedBrand;
+  }
+
   return NextResponse.json({ brand });
 }
