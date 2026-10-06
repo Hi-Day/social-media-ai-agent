@@ -71,6 +71,13 @@ export default function Home() {
   const [brandVoice, setBrandVoice] = useState("");
   const [brandDescription, setBrandDescription] = useState("");
   const [brandAudience, setBrandAudience] = useState("");
+  const [brandPillars, setBrandPillars] = useState("");
+  const [brandDoRules, setBrandDoRules] = useState("");
+  const [brandCtaStyle, setBrandCtaStyle] = useState("");
+  const [brandForbiddenTopics, setBrandForbiddenTopics] = useState("");
+  const [brandHashtagStrategy, setBrandHashtagStrategy] = useState("");
+  const [brandExamplePosts, setBrandExamplePosts] = useState("");
+  const [brandPlatformGuidance, setBrandPlatformGuidance] = useState("");
   const [brandSaving, setBrandSaving] = useState(false);
   const [brandSaved, setBrandSaved] = useState(false);
   const [userEmail, setUserEmail] = useState("");
@@ -130,6 +137,13 @@ export default function Home() {
         setBrandVoice(workspaceData.brand?.voice ?? "");
         setBrandDescription(workspaceData.brand?.description ?? "");
         setBrandAudience(workspaceData.brand?.audience ?? "");
+        setBrandPillars(workspaceData.brand?.pillars ?? "");
+        setBrandDoRules(workspaceData.brand?.do_rules ?? "");
+        setBrandCtaStyle(workspaceData.brand?.cta_style ?? "");
+        setBrandForbiddenTopics(workspaceData.brand?.forbidden_topics ?? "");
+        setBrandHashtagStrategy(workspaceData.brand?.hashtag_strategy ?? "");
+        setBrandExamplePosts(workspaceData.brand?.example_posts ?? "");
+        setBrandPlatformGuidance(workspaceData.brand?.platform_guidance ?? "");
         await loadDrafts(workspaceData.workspace.id);
       } catch (error) {
         if (mounted) {
@@ -193,6 +207,13 @@ export default function Home() {
           voice: brandVoice,
           description: brandDescription,
           audience: brandAudience,
+          pillars: brandPillars,
+          doRules: brandDoRules,
+          ctaStyle: brandCtaStyle,
+          forbiddenTopics: brandForbiddenTopics,
+          hashtagStrategy: brandHashtagStrategy,
+          examplePosts: brandExamplePosts,
+          platformGuidance: brandPlatformGuidance,
         }),
       });
       const data = await response.json();
@@ -201,6 +222,13 @@ export default function Home() {
       setBrandVoice(data.brand.voice ?? "");
       setBrandDescription(data.brand.description ?? "");
       setBrandAudience(data.brand.audience ?? "");
+      setBrandPillars(data.brand.pillars ?? "");
+      setBrandDoRules(data.brand.do_rules ?? "");
+      setBrandCtaStyle(data.brand.cta_style ?? "");
+      setBrandForbiddenTopics(data.brand.forbidden_topics ?? "");
+      setBrandHashtagStrategy(data.brand.hashtag_strategy ?? "");
+      setBrandExamplePosts(data.brand.example_posts ?? "");
+      setBrandPlatformGuidance(data.brand.platform_guidance ?? "");
       setBrandSaved(true);
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Unable to save Brand Brain.");
@@ -424,7 +452,7 @@ export default function Home() {
                 <div className="recommend">
                   <div className="rec-icon"><BrainCircuit size={20} /></div>
                   <b>Brand Brain ready</b>
-                  <p>Your workspace is connected. Generate content now; brand voice controls can be configured next.</p>
+                  <p>{brandVoice || brandPillars ? "Your generation rules are configured. The agent will apply them to new drafts." : "Your workspace is connected. Add brand rules to make generated content more consistent."}</p>
                   <button onClick={() => openTab("AI Studio")}>Create content <ChevronRight size={15} /></button>
                 </div>
               </div>
@@ -550,8 +578,23 @@ export default function Home() {
                 <label>What does the brand do?<textarea value={brandDescription} onChange={(e) => { setBrandDescription(e.target.value); setBrandSaved(false); }} placeholder="Describe the product, service, positioning, and important context." /></label>
                 <label>Target audience<textarea value={brandAudience} onChange={(e) => { setBrandAudience(e.target.value); setBrandSaved(false); }} placeholder="Who should the content speak to?" /></label>
               </div>
+              <div className="form-section">
+                <label>Content pillars<textarea value={brandPillars} onChange={(e) => { setBrandPillars(e.target.value); setBrandSaved(false); }} placeholder="e.g. AI education; product insights; customer stories; practical tips." /></label>
+                <label>Do / don't rules<textarea value={brandDoRules} onChange={(e) => { setBrandDoRules(e.target.value); setBrandSaved(false); }} placeholder="e.g. Do be evidence-led. Don't use clickbait, fear, or exaggerated claims." /></label>
+              </div>
+              <div className="form-section">
+                <label>CTA style<textarea value={brandCtaStyle} onChange={(e) => { setBrandCtaStyle(e.target.value); setBrandSaved(false); }} placeholder="e.g. Prefer thoughtful questions and soft CTAs; avoid hard-sell language." /></label>
+                <label>Forbidden topics<textarea value={brandForbiddenTopics} onChange={(e) => { setBrandForbiddenTopics(e.target.value); setBrandSaved(false); }} placeholder="Topics, claims, audiences, or wording the agent must avoid." /></label>
+              </div>
+              <div className="form-section">
+                <label>Hashtag strategy<textarea value={brandHashtagStrategy} onChange={(e) => { setBrandHashtagStrategy(e.target.value); setBrandSaved(false); }} placeholder="e.g. 3–5 relevant hashtags, prioritize niche terms, never use banned/trending tags just for reach." /></label>
+                <label>Platform guidance<textarea value={brandPlatformGuidance} onChange={(e) => { setBrandPlatformGuidance(e.target.value); setBrandSaved(false); }} placeholder="e.g. LinkedIn: analytical and concise. Instagram: visual, warmer, shorter." /></label>
+              </div>
+              <div className="form-section single">
+                <label>Example posts<textarea value={brandExamplePosts} onChange={(e) => { setBrandExamplePosts(e.target.value); setBrandSaved(false); }} placeholder="Paste 1–3 representative posts. The agent uses these as style examples, not as a source of facts." /></label>
+              </div>
               <div className="brand-form-foot">
-                <span>{brandSaved ? "Brand Brain saved. New generations will use these instructions." : "Changes affect future AI generations."}</span>
+                <span>{brandSaved ? "Brand Brain saved. New generations will use these instructions." : "These rules are applied to future AI generations."}</span>
                 <button className="primary" onClick={saveBrand} disabled={brandSaving}>{brandSaving ? "Saving…" : "Save Brand Brain"}</button>
               </div>
               {authError && <div className="auth-message error">{authError}</div>}
