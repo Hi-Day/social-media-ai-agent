@@ -61,6 +61,7 @@ export default function Home() {
   const [campaignObjective, setCampaignObjective] = useState("");
   const [campaignAudience, setCampaignAudience] = useState("");
   const [campaignMode, setCampaignMode] = useState<"automatic" | "manual">("automatic");
+  const [modelOverrides, setModelOverrides] = useState({ text: "Balance", image: "Balance", video: "Pro" });
   const [campaignPackages, setCampaignPackages] = useState<Array<{code:string;name:string;description:string;estimated_credits:number;estimated_duration_minutes:number;recommended:boolean;content_plan:Array<{platform:string;type:string;count:number;codename:string}>}>>([]);
   const [campaignLoading, setCampaignLoading] = useState(false);
   const [generated, setGenerated] = useState("");
@@ -310,6 +311,7 @@ export default function Home() {
           objective: campaignObjective,
           audience: campaignAudience,
           modelMode: campaignMode,
+          modelOverrides,
         }),
       });
       const data = await response.json();
