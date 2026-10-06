@@ -48,7 +48,7 @@ export async function POST(req: Request) {
         .order("created_at")
         .limit(1)
         .maybeSingle();
-      brand = fallback.data;
+      brand = fallback.data as typeof brand;
       brandError = fallback.error;
     }
 
