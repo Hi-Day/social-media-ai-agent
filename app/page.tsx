@@ -58,6 +58,7 @@ const stats = [
 
 export default function Home() {
   const [tab, setTab] = useState("Overview");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [idea, setIdea] = useState("");
   const [generated, setGenerated] = useState("");
   const [loading, setLoading] = useState(false);
@@ -96,6 +97,7 @@ export default function Home() {
               className={tab === name ? "active" : ""}
               onClick={() => {
                 setTab(name);
+                setMobileNavOpen(false);
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
               key={name}
@@ -105,6 +107,42 @@ export default function Home() {
             </button>
           ))}
         </nav>
+        <button
+          className="mobile-nav-toggle"
+          onClick={() => setMobileNavOpen((open) => !open)}
+          aria-expanded={mobileNavOpen}
+          aria-label="Open navigation"
+        >
+          {(() => {
+            const current = navigation.find((item) => item.name === tab) ?? navigation[0];
+            const Icon = current.icon;
+            return (
+              <>
+                <Icon size={17} />
+                <span>{current.name}</span>
+                <ChevronRight className={mobileNavOpen ? "rotate" : ""} size={16} />
+              </>
+            );
+          })()}
+        </button>
+        {mobileNavOpen && (
+          <div className="mobile-nav-menu">
+            {navigation.map(({ icon: Icon, name }) => (
+              <button
+                className={tab === name ? "selected" : ""}
+                onClick={() => {
+                  setTab(name);
+                  setMobileNavOpen(false);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                key={name}
+              >
+                <Icon size={16} />
+                <span>{name}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="side-bottom">
           <button>
