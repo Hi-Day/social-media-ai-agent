@@ -163,3 +163,24 @@ button:disabled{opacity:.55;cursor:not-allowed}
   .draft-actions{justify-content:flex-start;margin-top:12px}
   .approval-note{font-size:9px}
 }
+
+.brand-settings{max-width:900px;margin:10px auto}
+.brand-form{padding:24px}
+.form-section{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.form-section label{display:grid;gap:8px;font-size:10px;font-weight:700;color:#56616e}
+.form-section input,.form-section textarea{
+  width:100%;border:1px solid #dfe4e8;border-radius:9px;padding:12px 13px;
+  outline:none;font:inherit;font-size:12px;background:#fff;resize:vertical
+}
+.form-section input{min-height:43px}
+.form-section textarea{min-height:125px;line-height:1.55}
+.form-section input:focus,.form-section textarea:focus{border-color:#a7b86c;box-shadow:0 0 0 3px rgba(167,184,108,.14)}
+.brand-form-foot{border-top:1px solid #edf0f2;padding-top:16px;display:flex;align-items:center;justify-content:space-between;gap:15px;color:#7c8794;font-size:10px;line-height:1.5}
+@media(max-width:640px){
+  .brand-settings{margin:4px auto}
+  .brand-form{padding:16px}
+  .form-section{grid-template-columns:1fr;gap:13px;margin-bottom:13px}
+  .form-section textarea{min-height:105px}
+  .brand-form-foot{align-items:flex-start;flex-direction:column}
+  .brand-form-foot .primary{width:100%;justify-content:center}
+}
