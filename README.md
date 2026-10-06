@@ -11,6 +11,8 @@ The goal is to evolve from an AI content generator into an AI Social Media Manag
 ## Documentation
 
 - [Product Requirements Document](docs/PRD.md)
+- [System Design](docs/SYSTEM_DESIGN.md)
+- [Free-Tier Deployment Architecture](docs/FREE_TIER_DEPLOYMENT.md)
 
 ## Initial MVP
 
@@ -28,6 +30,12 @@ The goal is to evolve from an AI content generator into an AI Social Media Manag
 ## Architecture principle
 
 The system uses persistent context, tools, memory, planning, execution, evaluation, and governance, with risk-based human-in-the-loop controls.
+
+## Deployment target
+
+The MVP is designed to run first on **Vercel Hobby + Supabase Free**, without a permanently running server or Redis dependency. The queue and scheduler are abstracted so production infrastructure can be introduced later without rewriting the domain layer.
+
+See [Free-Tier Deployment Architecture](docs/FREE_TIER_DEPLOYMENT.md).
 
 ## Status
 
