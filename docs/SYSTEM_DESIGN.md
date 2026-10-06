@@ -506,23 +506,27 @@ The application must not hard-code a single LLM provider.
 
 ## 18. Deployment
 
-### MVP
+### MVP — Free-tier deployment
 
-A modular monolith:
+A serverless modular monolith:
 
 ```
-Next.js
+Next.js / Vercel Hobby
    +
-Node.js API
+Serverless API + Agent Runtime
    +
-Agent Runtime
+Supabase PostgreSQL/pgvector
    +
-PostgreSQL/pgvector
+Supabase Auth + Storage
    +
-Redis/BullMQ
-   +
-Object Storage
+Supabase PGMQ / Queues
 ```
+
+Redis/BullMQ is **not** an MVP dependency. The application uses a replaceable JobQueue interface, with Supabase PGMQ as the default implementation. This keeps the MVP deployable without an always-on server or paid queue. See [Free-Tier Deployment Architecture](FREE_TIER_DEPLOYMENT.md).
+
+The Agent Runtime must be stateless between requests; long-running work is persisted as tasks, jobs, and checkpoints in PostgreSQL.
+
+Vercel Hobby Cron must not be treated as a minute-level scheduler because Hobby cron is limited to once per day with hour-level timing precision. Exact scheduling is therefore abstracted behind a replaceable scheduler implementation. 
 
 Deploy independently only when scale or organizational boundaries justify it.
 
