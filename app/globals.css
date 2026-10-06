@@ -166,7 +166,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
 
 .brand-settings{max-width:900px;margin:10px auto}
 .brand-form{padding:24px}
-.form-section{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.form-section{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}.form-section.single{grid-template-columns:1fr}
 .form-section label{display:grid;gap:8px;font-size:10px;font-weight:700;color:#56616e}
 .form-section input,.form-section textarea{
   width:100%;border:1px solid #dfe4e8;border-radius:9px;padding:12px 13px;
