@@ -94,7 +94,10 @@ export default function Home() {
           {navigation.map(({ icon: Icon, name }) => (
             <button
               className={tab === name ? "active" : ""}
-              onClick={() => setTab(name)}
+              onClick={() => {
+                setTab(name);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
               key={name}
             >
               <Icon size={17} />
