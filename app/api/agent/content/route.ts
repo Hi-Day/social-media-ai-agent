@@ -31,13 +31,28 @@ export async function POST(req: Request) {
 
     if (!membership) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const { data: brand } = await supabase
+    let { data: brand, error: brandError } = await supabase
       .from("brands")
-      .select("name, voice, description, audience")
+      .select("name, voice, description, audience, pillars, do_rules, cta_style, forbidden_topics, hashtag_strategy, example_posts, platform_guidance")
       .eq("workspace_id", workspaceId)
       .order("created_at")
       .limit(1)
       .maybeSingle();
+
+    // Keep content generation usable while a pending DB migration is being applied.
+    if (brandError && /column .* does not exist/i.test(brandError.message)) {
+      const fallback = await supabase
+        .from("brands")
+        .select("name, voice, description, audience")
+        .eq("workspace_id", workspaceId)
+        .order("created_at")
+        .limit(1)
+        .maybeSingle();
+      brand = fallback.data;
+      brandError = fallback.error;
+    }
+
+    if (brandError) return NextResponse.json({ error: brandError.message }, { status: 500 });
 
     const caption = await generateCaption(idea, brand ?? {});
 
