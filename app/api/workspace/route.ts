@@ -26,7 +26,7 @@ export async function GET() {
   const workspaceId = memberships[0].workspace_id;
   const [{ data: workspace }, { data: brands }] = await Promise.all([
     supabase.from("workspaces").select("id, name, created_at").eq("id", workspaceId).single(),
-    supabase.from("brands").select("id, name, voice, description, audience").eq("workspace_id", workspaceId).order("created_at").limit(1),
+    supabase.from("brands").select("id, name, voice, description, audience, pillars, do_rules, cta_style, forbidden_topics, hashtag_strategy, example_posts, platform_guidance").eq("workspace_id", workspaceId).order("created_at").limit(1),
   ]);
 
   return NextResponse.json({
