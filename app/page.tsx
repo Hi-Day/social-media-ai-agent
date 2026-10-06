@@ -27,6 +27,7 @@ const navigation = [
   { icon: MessageSquare, name: "Engagement" },
   { icon: TrendingUp, name: "Analytics" },
   { icon: Users, name: "Audience" },
+  { icon: BrainCircuit, name: "Brand Brain" },
 ];
 
 type Draft = {
@@ -67,6 +68,11 @@ export default function Home() {
   const [workspaceId, setWorkspaceId] = useState("");
   const [workspaceName, setWorkspaceName] = useState("My Workspace");
   const [brandName, setBrandName] = useState("My Brand");
+  const [brandVoice, setBrandVoice] = useState("");
+  const [brandDescription, setBrandDescription] = useState("");
+  const [brandAudience, setBrandAudience] = useState("");
+  const [brandSaving, setBrandSaving] = useState(false);
+  const [brandSaved, setBrandSaved] = useState(false);
   const [userEmail, setUserEmail] = useState("");
 
   const router = useRouter();
@@ -121,6 +127,9 @@ export default function Home() {
         setWorkspaceId(workspaceData.workspace.id);
         setWorkspaceName(workspaceData.workspace.name);
         setBrandName(workspaceData.brand?.name ?? workspaceData.workspace.name);
+        setBrandVoice(workspaceData.brand?.voice ?? "");
+        setBrandDescription(workspaceData.brand?.description ?? "");
+        setBrandAudience(workspaceData.brand?.audience ?? "");
         await loadDrafts(workspaceData.workspace.id);
       } catch (error) {
         if (mounted) {
@@ -157,7 +166,7 @@ export default function Home() {
       const response = await fetch("/api/agent/content", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ idea }),
+        body: JSON.stringify({ idea, workspaceId }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Generation failed.");
@@ -166,6 +175,37 @@ export default function Home() {
       setAuthError(error instanceof Error ? error.message : "Generation failed.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function saveBrand() {
+    if (!workspaceId || !brandName.trim()) return;
+    setBrandSaving(true);
+    setBrandSaved(false);
+    setAuthError("");
+    try {
+      const response = await fetch("/api/brand", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          workspaceId,
+          name: brandName,
+          voice: brandVoice,
+          description: brandDescription,
+          audience: brandAudience,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to save Brand Brain.");
+      setBrandName(data.brand.name);
+      setBrandVoice(data.brand.voice ?? "");
+      setBrandDescription(data.brand.description ?? "");
+      setBrandAudience(data.brand.audience ?? "");
+      setBrandSaved(true);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Unable to save Brand Brain.");
+    } finally {
+      setBrandSaving(false);
     }
   }
 
@@ -300,7 +340,7 @@ export default function Home() {
         )}
 
         <div className="side-bottom">
-          <button><Settings size={17} />Settings</button>
+          <button onClick={() => openTab("Brand Brain")}><Settings size={17} />Settings</button>
           <div className="workspace">
             <div className="avatar">HD</div>
             <div>
@@ -489,6 +529,32 @@ export default function Home() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {tab === "Brand Brain" && (
+          <div className="brand-settings">
+            <div className="studio-copy">
+              <span className="eyebrow">BRAND INTELLIGENCE</span>
+              <h2>Teach the agent<br />how your brand speaks.</h2>
+              <p>These instructions are applied to future content generation for this workspace.</p>
+            </div>
+
+            <div className="brand-form panel">
+              <div className="form-section">
+                <label>Brand name<input value={brandName} onChange={(e) => { setBrandName(e.target.value); setBrandSaved(false); }} placeholder="Your brand" /></label>
+                <label>Brand voice<textarea value={brandVoice} onChange={(e) => { setBrandVoice(e.target.value); setBrandSaved(false); }} placeholder="e.g. Clear, confident, practical, warm. Avoid hype and jargon." /></label>
+              </div>
+              <div className="form-section">
+                <label>What does the brand do?<textarea value={brandDescription} onChange={(e) => { setBrandDescription(e.target.value); setBrandSaved(false); }} placeholder="Describe the product, service, positioning, and important context." /></label>
+                <label>Target audience<textarea value={brandAudience} onChange={(e) => { setBrandAudience(e.target.value); setBrandSaved(false); }} placeholder="Who should the content speak to?" /></label>
+              </div>
+              <div className="brand-form-foot">
+                <span>{brandSaved ? "Brand Brain saved. New generations will use these instructions." : "Changes affect future AI generations."}</span>
+                <button className="primary" onClick={saveBrand} disabled={brandSaving}>{brandSaving ? "Saving…" : "Save Brand Brain"}</button>
+              </div>
+              {authError && <div className="auth-message error">{authError}</div>}
             </div>
           </div>
         )}
