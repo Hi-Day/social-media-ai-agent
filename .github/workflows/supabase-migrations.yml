@@ -53,7 +53,9 @@ jobs:
       - name: Link production project
         if: steps.config.outputs.configured == 'true'
         run: |
-          supabase link             --project-ref "$SUPABASE_PROJECT_ID"             --password "$SUPABASE_DB_PASSWORD"
+          supabase link \
+            --project-ref "$SUPABASE_PROJECT_ID" \
+            --password "$SUPABASE_DB_PASSWORD"
 
       - name: Show migration status
         if: steps.config.outputs.configured == 'true'
