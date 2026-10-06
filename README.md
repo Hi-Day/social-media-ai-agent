@@ -1,42 +1,26 @@
-# Social Media AI Agent
+# SocialOS — Social Media AI Agent
 
-An agentic AI platform for managing social media operations end-to-end.
+Agentic AI workspace for planning, creating, approving, publishing and learning from social media operations.
 
-## Product thesis
+## Run locally
 
-**Observe → Understand → Plan → Create → Review → Act → Measure → Learn**
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
 
-The goal is to evolve from an AI content generator into an AI Social Media Manager and ultimately an AI Marketing Operating System.
+Open http://localhost:3000. The app works in **demo mode without Supabase or an LLM key**. Add `OPENROUTER_API_KEY` to enable live generation.
+
+## Free-tier deployment
+
+Designed for Vercel Hobby + Supabase Free. Redis is not required for MVP. See [Free-Tier Deployment Architecture](docs/FREE_TIER_DEPLOYMENT.md).
 
 ## Documentation
 
-- [Product Requirements Document](docs/PRD.md)
+- [PRD](docs/PRD.md)
 - [System Design](docs/SYSTEM_DESIGN.md)
-- [Free-Tier Deployment Architecture](docs/FREE_TIER_DEPLOYMENT.md)
-
-## Initial MVP
-
-- Brand Brain
-- Social account connection
-- Content planning
-- AI content generation
-- Content calendar
-- Approval workflow
-- Publishing
-- Basic analytics
-- Engagement monitoring
-- AI recommendations
-
-## Architecture principle
-
-The system uses persistent context, tools, memory, planning, execution, evaluation, and governance, with risk-based human-in-the-loop controls.
-
-## Deployment target
-
-The MVP is designed to run first on **Vercel Hobby + Supabase Free**, without a permanently running server or Redis dependency. The queue and scheduler are abstracted so production infrastructure can be introduced later without rewriting the domain layer.
-
-See [Free-Tier Deployment Architecture](docs/FREE_TIER_DEPLOYMENT.md).
-
-## Status
-
-Product definition / pre-development.
+- [Agent Architecture](docs/AGENT_ARCHITECTURE.md)
+- [Data Model](docs/DATA_MODEL.md)
+- [API & Tool Spec](docs/API_TOOL_SPEC.md)
+- [Evaluation](docs/EVALUATION.md)

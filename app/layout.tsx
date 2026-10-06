@@ -1,0 +1,1 @@
+import type { Metadata } from "next"; import "./globals.css"; export const metadata:Metadata={title:"SocialOS — AI Social Media Manager",description:"Agentic AI workspace for social media operations"}; export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}
