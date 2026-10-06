@@ -1,4 +1,4 @@
-type BrandContext = {
+export type BrandContext = {
   name?: string | null;
   voice?: string | null;
   description?: string | null;
@@ -12,11 +12,27 @@ type BrandContext = {
   platform_guidance?: string | null;
 };
 
-export async function generateCaption(idea: string, brand: BrandContext = {}) {
+export type GenerationOptions = {
+  codename?: string;
+  platform?: string;
+  contentType?: string;
+};
+
+function resolveModel(codename?: string) {
+  const key = codename?.toUpperCase();
+  const configured = key ? process.env[`OPENROUTER_MODEL_${key}`] : undefined;
+  return configured || process.env.OPENROUTER_MODEL || "deepseek/deepseek-chat-v3.1";
+}
+
+export async function generateCaption(
+  idea: string,
+  brand: BrandContext = {},
+  options: GenerationOptions = {},
+) {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) return demo(idea, brand);
 
-  const model = process.env.OPENROUTER_MODEL || "deepseek/deepseek-chat-v3.1";
+  const model = resolveModel(options.codename);
   const brandContext = [
     brand.name && "Brand: " + brand.name,
     brand.voice && "Voice: " + brand.voice,
@@ -41,8 +57,8 @@ export async function generateCaption(idea: string, brand: BrandContext = {}) {
       {
         role: "user",
         content: brandContext
-          ? "BRAND CONTEXT:\n" + brandContext + "\n\nCONTENT REQUEST:\n" + idea
-          : idea,
+          ? "BRAND CONTEXT:\n" + brandContext + "\n\nPLATFORM: " + (options.platform || "Multi-platform") + "\nCONTENT FORMAT: " + (options.contentType || "Social content") + "\nCONTENT REQUEST:\n" + idea
+          : "PLATFORM: " + (options.platform || "Multi-platform") + "\nCONTENT FORMAT: " + (options.contentType || "Social content") + "\nCONTENT REQUEST:\n" + idea,
       },
     ],
     temperature: 0.7,
