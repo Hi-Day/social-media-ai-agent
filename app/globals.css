@@ -22,13 +22,23 @@
     border-top:1px solid #252c35;
   }
   .brand,.side-bottom{display:none}
-  nav{display:flex;align-items:stretch;justify-content:space-around;gap:4px;height:54px}
+  nav{
+    display:flex;
+    align-items:stretch;
+    justify-content:flex-start;
+    gap:4px;
+    height:54px;
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  nav::-webkit-scrollbar{display:none}
   nav button,
   nav button.active{
-    flex:1;
-    min-width:0;
+    display:flex;
+    flex:0 0 auto;
+    min-width:76px;
     justify-content:center;
-    padding:8px 4px;
+    padding:8px 10px;
     border-radius:9px;
     color:#8f9aa8;
   }
