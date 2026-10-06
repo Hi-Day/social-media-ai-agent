@@ -62,7 +62,9 @@ export default function Home() {
   const [campaignAudience, setCampaignAudience] = useState("");
   const [campaignMode, setCampaignMode] = useState<"automatic" | "manual">("automatic");
   const [modelOverrides, setModelOverrides] = useState({ text: "Balance", image: "Balance", video: "Pro" });
-  const [campaignPackages, setCampaignPackages] = useState<Array<{code:string;name:string;description:string;estimated_credits:number;estimated_duration_minutes:number;recommended:boolean;content_plan:Array<{platform:string;type:string;count:number;codename:string}>}>>([]);\n  const [campaignId, setCampaignId] = useState("");\n  const [selectedPackage, setSelectedPackage] = useState("");
+  const [campaignPackages, setCampaignPackages] = useState<Array<{code:string;name:string;description:string;estimated_credits:number;estimated_duration_minutes:number;recommended:boolean;content_plan:Array<{platform:string;type:string;count:number;codename:string}>}>>([]);
+  const [campaignId, setCampaignId] = useState("");
+  const [selectedPackage, setSelectedPackage] = useState("");
   const [campaignLoading, setCampaignLoading] = useState(false);
   const [generated, setGenerated] = useState("");
   const [draftId, setDraftId] = useState("");
@@ -338,7 +340,9 @@ export default function Home() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to plan campaign.");
-      setCampaignId(data.campaign?.id ?? "");\n      setSelectedPackage("");\n      setCampaignPackages(data.packages ?? []);
+      setCampaignId(data.campaign?.id ?? "");
+      setSelectedPackage("");
+      setCampaignPackages(data.packages ?? []);
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Unable to plan campaign.");
     } finally {
@@ -617,7 +621,8 @@ export default function Home() {
                     <small>CAMPAIGN PACKAGE</small>
                     <h3>{pkg.name}</h3>
                     <p>{pkg.description}</p>
-                    <div className="package-cost"><strong>{pkg.estimated_credits}</strong><span>credits est.</span></div>\n                    {selectedPackage === pkg.code && <div className="package-selected">✓ Selected — content tasks created</div>}
+                    <div className="package-cost"><strong>{pkg.estimated_credits}</strong><span>credits est.</span></div>
+                    {selectedPackage === pkg.code && <div className="package-selected">✓ Selected — content tasks created</div>}
                     <div className="package-time">~{pkg.estimated_duration_minutes} min generation</div>
                     <div className="package-items">
                       {pkg.content_plan.map((item, index) => (
