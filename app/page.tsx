@@ -66,6 +66,8 @@ export default function Home() {
   const [campaignId, setCampaignId] = useState("");
   const [selectedPackage, setSelectedPackage] = useState("");
   const [campaignLoading, setCampaignLoading] = useState(false);
+  const [campaignExecutionLoading, setCampaignExecutionLoading] = useState(false);
+  const [campaignExecutionMessage, setCampaignExecutionMessage] = useState("");
   const [generated, setGenerated] = useState("");
   const [draftId, setDraftId] = useState("");
   const [draftStatus, setDraftStatus] = useState("draft");
@@ -318,6 +320,32 @@ export default function Home() {
       setAuthError(error instanceof Error ? error.message : "Unable to select campaign package.");
     } finally {
       setCampaignLoading(false);
+    }
+  }
+
+  async function executeCampaign() {
+    if (!workspaceId || !campaignId || !selectedPackage) return;
+    setCampaignExecutionLoading(true);
+    setCampaignExecutionMessage("");
+    setAuthError("");
+    try {
+      const response = await fetch("/api/campaign/execute", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ workspaceId, campaignId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to execute campaign.");
+      setCampaignExecutionMessage(
+        `Generated ${data.generated} content task${data.generated === 1 ? "" : "s"}.` +
+        (data.mediaPending ? ` ${data.mediaPending} visual task${data.mediaPending === 1 ? "" : "s"} still need a media provider.` : "") +
+        (data.remaining ? ` ${data.remaining} task${data.remaining === 1 ? "" : "s"} remain for the next execution batch.` : "")
+      );
+      await loadDrafts();
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Unable to execute campaign.");
+    } finally {
+      setCampaignExecutionLoading(false);
     }
   }
 
@@ -622,7 +650,15 @@ export default function Home() {
                     <h3>{pkg.name}</h3>
                     <p>{pkg.description}</p>
                     <div className="package-cost"><strong>{pkg.estimated_credits}</strong><span>credits est.</span></div>
-                    {selectedPackage === pkg.code && <div className="package-selected">✓ Selected — content tasks created</div>}
+                    {selectedPackage === pkg.code && (
+                      <>
+                        <div className="package-selected">✓ Selected — content tasks ready</div>
+                        <button className="primary campaign-execute" onClick={executeCampaign} disabled={campaignExecutionLoading}>
+                          {campaignExecutionLoading ? "Generating…" : "Generate campaign content"}
+                        </button>
+                        {campaignExecutionMessage && <div className="package-execution-note">{campaignExecutionMessage}</div>}
+                      </>
+                    )}
                     <div className="package-time">~{pkg.estimated_duration_minutes} min generation</div>
                     <div className="package-items">
                       {pkg.content_plan.map((item, index) => (
