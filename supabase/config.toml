@@ -1,3 +1,4 @@
 # Supabase project configuration.
 # Project-specific credentials are provided through GitHub Actions secrets.
+# Migration trigger: production secrets are now configured.
 project_id = "social-media-ai-agent"
