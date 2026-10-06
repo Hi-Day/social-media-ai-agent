@@ -42,7 +42,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Select a campaign package before execution." }, { status: 409 });
     }
 
-    const { data: brand, error: brandError } = await supabase
+    let { data: brand, error: brandError } = await supabase
       .from("brands")
       .select("name,voice,description,audience,pillars,do_rules,cta_style,forbidden_topics,hashtag_strategy,example_posts,platform_guidance")
       .eq("workspace_id", workspaceId)
@@ -59,6 +59,8 @@ export async function POST(req: Request) {
         .limit(1)
         .maybeSingle();
       if (fallback.error) return NextResponse.json({ error: fallback.error.message }, { status: 500 });
+      brand = fallback.data as typeof brand;
+      brandError = fallback.error;
     } else if (brandError) {
       return NextResponse.json({ error: brandError.message }, { status: 500 });
     }
