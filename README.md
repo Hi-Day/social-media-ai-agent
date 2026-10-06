@@ -38,3 +38,8 @@ Designed for Vercel Hobby + Supabase Free. Redis is not required for MVP. See [F
 - [Data Model](docs/DATA_MODEL.md)
 - [API & Tool Spec](docs/API_TOOL_SPEC.md)
 - [Evaluation](docs/EVALUATION.md)
+
+
+### Demo mode
+
+The login page includes **Try Demo**, which uses Supabase Anonymous Auth so demo users still receive a real authenticated session and remain protected by the same workspace RLS policies. Enable **Authentication → Providers → Anonymous** in the Supabase project before using it. Demo sessions can be signed out normally; no shared demo password is exposed.
