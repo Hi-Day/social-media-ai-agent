@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { chooseAutomaticModel, estimateCredits, getProfile, type Capability, type ModelCodename } from "@/lib/model-registry";
+import { chooseAutomaticModel, estimateCredits, getProfile, profilesFor, type Capability, type ModelCodename } from "@/lib/model-registry";
 
 const PACKAGES = {
   starter: {
