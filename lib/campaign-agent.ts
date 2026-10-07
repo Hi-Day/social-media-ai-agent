@@ -17,6 +17,8 @@ type CampaignContext = {
 };
 
 const TEXT_TYPES = new Set(["LinkedIn Post", "Social Post", "Caption", "Text Post"]);
+const IMAGE_TYPES = new Set(["Carousel", "Image", "Story", "Static Post"]);
+const VIDEO_TYPES = new Set(["Reel", "Hero Reel", "Short Video", "Video"]);
 
 export async function executeCampaignTask(
   task: CampaignContentTask,
@@ -26,8 +28,6 @@ export async function executeCampaignTask(
   const contentType = task.content_type || "Content";
   const platform = task.platform || "Multi-platform";
 
-  // Every campaign asset gets an honest execution state. For visual formats,
-  // the text layer can still be generated while the media provider remains pending.
   const textRequest = [
     `Campaign: ${campaign.name}`,
     `Objective: ${campaign.objective}`,
@@ -45,14 +45,33 @@ export async function executeCampaignTask(
     contentType,
   });
 
-  const mediaRequired = !TEXT_TYPES.has(contentType);
-  if (!mediaRequired) {
+  if (TEXT_TYPES.has(contentType)) {
     return {
       caption,
       mediaRequired: false,
-      mediaStatus: "generated",
+      mediaStatus: "not_required" as const,
       mediaUrl: null,
       mediaMetadata: {},
+    };
+  }
+
+  if (VIDEO_TYPES.has(contentType)) {
+    return {
+      caption,
+      mediaRequired: true,
+      mediaStatus: "provider_unavailable" as const,
+      mediaUrl: null,
+      mediaMetadata: { reason: "video_provider_not_implemented" },
+    };
+  }
+
+  if (!IMAGE_TYPES.has(contentType)) {
+    return {
+      caption,
+      mediaRequired: true,
+      mediaStatus: "provider_unavailable" as const,
+      mediaUrl: null,
+      mediaMetadata: { reason: "unsupported_media_type", content_type: contentType },
     };
   }
 
@@ -61,7 +80,7 @@ export async function executeCampaignTask(
   return {
     caption,
     mediaRequired: true,
-    mediaStatus: "generated",
+    mediaStatus: "generated" as const,
     mediaUrl: image.url,
     mediaMetadata: {
       provider: image.provider,
