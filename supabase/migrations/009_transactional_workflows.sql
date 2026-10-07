@@ -72,6 +72,7 @@ begin
 end;
 $$;
 
+revoke all on function public.select_campaign_package(uuid, uuid, text, jsonb) from public, anon;
 grant execute on function public.select_campaign_package(uuid, uuid, text, jsonb) to authenticated;
 
 
@@ -166,4 +167,5 @@ begin
 end;
 $$;
 
+revoke all on function public.review_content_draft(uuid, text) from public, anon;
 grant execute on function public.review_content_draft(uuid, text) to authenticated;
