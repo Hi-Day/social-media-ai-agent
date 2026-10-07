@@ -49,6 +49,8 @@ type Draft = {
   updated_at: string;
   generation_status?: string;
   generation_error?: string | null;
+  media_status?: string | null;
+  media_url?: string | null;
 };
 
 const stats = [
