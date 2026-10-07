@@ -31,6 +31,7 @@ class OpenRouterImageProvider implements ImageProvider {
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
         "X-Title": "SocialOS",
       },
+      signal: AbortSignal.timeout(60_000),
       body: JSON.stringify({
         model,
         messages: [
