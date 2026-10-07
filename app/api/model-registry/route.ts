@@ -27,7 +27,19 @@ function normalizePolicy(capability: Capability, row?: { default_codename: strin
   return { capability, default_codename: defaultCodename, enabled_codenames: safeEnabled };
 }
 
-type ModelPolicyRow = {\n  capability: Capability;\n  default_codename: string;\n  enabled_codenames: unknown;\n};\n\ntype ModelPolicyInput = {\n  capability?: unknown;\n  default_codename?: unknown;\n  enabled_codenames?: unknown;\n};\n\nasync function getContext(workspaceId: string) {
+type ModelPolicyRow = {
+  capability: Capability;
+  default_codename: string;
+  enabled_codenames: unknown;
+};
+
+type ModelPolicyInput = {
+  capability?: unknown;
+  default_codename?: unknown;
+  enabled_codenames?: unknown;
+};
+
+async function getContext(workspaceId: string) {
   const supabase = await createClient();
   const { data: auth, error: authError } = await supabase.auth.getUser();
   if (authError || !auth.user) return { supabase, user: null, role: null };
@@ -59,7 +71,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const policyRows = (rows ?? []) as unknown as ModelPolicyRow[];\n  const byCapability = new Map(policyRows.map((row) => [row.capability, row]));
+  const policyRows = (rows ?? []) as unknown as ModelPolicyRow[];
+  const byCapability = new Map(policyRows.map((row) => [row.capability, row]));
   const policies = CAPABILITIES.map((capability) =>
     normalizePolicy(capability, byCapability.get(capability)),
   );
