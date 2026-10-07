@@ -29,7 +29,14 @@ const navigation = [
   { icon: TrendingUp, name: "Analytics" },
   { icon: Users, name: "Audience" },
   { icon: BrainCircuit, name: "Brand Brain" },
+  { icon: Settings, name: "Model Registry" },
 ];
+
+type ModelPolicy = {
+  capability: "text" | "image" | "video" | "voice" | "stt";
+  default_codename: string;
+  enabled_codenames: string[];
+};
 
 type Draft = {
   id: string;
@@ -95,6 +102,10 @@ export default function Home() {
   const [brandSaving, setBrandSaving] = useState(false);
   const [brandSaved, setBrandSaved] = useState(false);
   const [userEmail, setUserEmail] = useState("");
+  const [modelPolicies, setModelPolicies] = useState<ModelPolicy[]>([]);
+  const [modelRegistryEditable, setModelRegistryEditable] = useState(false);
+  const [modelRegistrySaving, setModelRegistrySaving] = useState(false);
+  const [modelRegistrySaved, setModelRegistrySaved] = useState(false);
 
   const router = useRouter();
 
@@ -146,6 +157,15 @@ export default function Home() {
 
         if (!mounted) return;
         setWorkspaceId(workspaceData.workspace.id);
+        const modelResponse = await fetch(
+          `/api/model-registry?workspaceId=${encodeURIComponent(workspaceData.workspace.id)}`,
+          { cache: "no-store" },
+        );
+        const modelData = await modelResponse.json();
+        if (modelResponse.ok) {
+          setModelPolicies(modelData.policies ?? []);
+          setModelRegistryEditable(Boolean(modelData.editable));
+        }
         setWorkspaceName(workspaceData.workspace.name);
         setBrandName(workspaceData.brand?.name ?? workspaceData.workspace.name);
         setBrandVoice(workspaceData.brand?.voice ?? "");
@@ -204,6 +224,63 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function saveModelRegistry() {
+    if (!workspaceId || !modelPolicies.length) return;
+    setModelRegistrySaving(true);
+    setModelRegistrySaved(false);
+    setAuthError("");
+
+    try {
+      const response = await fetch("/api/model-registry", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ workspaceId, policies: modelPolicies }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to save model policy.");
+      setModelPolicies(data.policies ?? modelPolicies);
+      setModelRegistrySaved(true);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Unable to save model policy.");
+    } finally {
+      setModelRegistrySaving(false);
+    }
+  }
+
+  function toggleModel(capability: ModelPolicy["capability"], codename: string) {
+    if (!modelRegistryEditable) return;
+    setModelRegistrySaved(false);
+    setModelPolicies((current) =>
+      current.map((policy) => {
+        if (policy.capability !== capability) return policy;
+        const enabled = policy.enabled_codenames.includes(codename)
+          ? policy.enabled_codenames.filter((item) => item !== codename)
+          : [...policy.enabled_codenames, codename];
+        if (!enabled.length) return policy;
+        return {
+          ...policy,
+          enabled_codenames: enabled,
+          default_codename: enabled.includes(policy.default_codename)
+            ? policy.default_codename
+            : enabled[0],
+        };
+      }),
+    );
+  }
+
+  function setDefaultModel(capability: ModelPolicy["capability"], codename: string) {
+    if (!modelRegistryEditable) return;
+    setModelRegistrySaved(false);
+    setModelPolicies((current) =>
+      current.map((policy) =>
+        policy.capability === capability &&
+        policy.enabled_codenames.includes(codename)
+          ? { ...policy, default_codename: codename }
+          : policy,
+      ),
+    );
   }
 
   async function saveBrand() {
@@ -707,6 +784,84 @@ export default function Home() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {tab === "Model Registry" && (
+          <div className="model-registry-view">
+            <div className="studio-copy">
+              <span className="eyebrow">MODEL ROUTING</span>
+              <h2>Control how the agent<br />spends your AI budget.</h2>
+              <p>Choose which capability tiers are available and which tier the automatic campaign agent should prefer.</p>
+            </div>
+
+            <div className="model-registry panel">
+              <div className="model-registry-head">
+                <div>
+                  <small>WORKSPACE POLICY</small>
+                  <h3>{modelRegistryEditable ? "Your model policy" : "Read-only model policy"}</h3>
+                </div>
+                <span className="status approved">{modelRegistryEditable ? "Admin" : "Member"}</span>
+              </div>
+
+              <div className="model-policy-grid">
+                {modelPolicies.map((policy) => (
+                  <div className="model-policy-card" key={policy.capability}>
+                    <div className="model-policy-title">
+                      <div>
+                        <small>{policy.capability.toUpperCase()}</small>
+                        <h3>Automatic default</h3>
+                      </div>
+                      <b>{policy.default_codename}</b>
+                    </div>
+                    <p>Enabled tiers</p>
+                    <div className="model-tier-list">
+                      {["Swift", "Balance", "Pro", "Studio", "Cinematic"]
+                        .filter((codename) => policy.capability === "text" || policy.capability === "voice" || policy.capability === "stt"
+                          ? ["Swift", "Balance", "Pro"].includes(codename)
+                          : policy.capability === "image"
+                            ? ["Swift", "Balance", "Pro", "Studio"].includes(codename)
+                            : true)
+                        .map((codename) => {
+                          const enabled = policy.enabled_codenames.includes(codename);
+                          const isDefault = policy.default_codename === codename;
+                          return (
+                            <div className={`model-tier ${enabled ? "enabled" : ""}`} key={codename}>
+                              <button type="button" disabled={!modelRegistryEditable} onClick={() => toggleModel(policy.capability, codename)}>
+                                {enabled ? "✓" : "○"} {codename}
+                              </button>
+                              {enabled && (
+                                <button
+                                  type="button"
+                                  className={isDefault ? "model-default active" : "model-default"}
+                                  disabled={!modelRegistryEditable}
+                                  onClick={() => setDefaultModel(policy.capability, codename)}
+                                >
+                                  {isDefault ? "Default" : "Use by default"}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="model-registry-foot">
+                <span>
+                  {modelRegistrySaved
+                    ? "Model policy saved. New campaign planning will use these preferences."
+                    : "Pricing and underlying provider identities remain controlled by the application registry."}
+                </span>
+                {modelRegistryEditable && (
+                  <button className="primary" onClick={saveModelRegistry} disabled={modelRegistrySaving}>
+                    {modelRegistrySaving ? "Saving…" : "Save model policy"}
+                  </button>
+                )}
+              </div>
+              {authError && <div className="auth-message error">{authError}</div>}
             </div>
           </div>
         )}
