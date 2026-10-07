@@ -221,3 +221,6 @@ button:disabled{opacity:.55;cursor:not-allowed}
   .model-policy-grid { grid-template-columns: 1fr; }
   .model-registry-head, .model-registry-foot { align-items: flex-start; flex-direction: column; }
 }
+
+.media-preview { display: inline-flex; margin-top: 8px; font-size: 12px; font-weight: 700; text-decoration: none; color: inherit; border: 1px solid #d8d8dc; border-radius: 999px; padding: 6px 9px; }
+.media-preview:hover { text-decoration: underline; }
