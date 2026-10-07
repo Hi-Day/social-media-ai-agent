@@ -97,7 +97,9 @@ export async function POST(req: Request) {
           audience: campaign.audience,
         }, brandContext);
 
-        const generationStatus = result.mediaRequired && result.mediaStatus !== "generated"\n          ? result.mediaStatus === "provider_unavailable" ? "provider_unavailable" : "failed"\n          : "generated";
+        const generationStatus = result.mediaRequired && result.mediaStatus !== "generated"
+          ? result.mediaStatus === "provider_unavailable" ? "provider_unavailable" : "failed"
+          : "generated";
 
         const { error: updateError } = await supabase
           .from("content_drafts")
