@@ -767,6 +767,11 @@ export default function Home() {
                     <b>{draft.title || "Untitled draft"}</b>
                     <small>{draft.platform || "Multi-platform"} · {draft.generation_status && draft.generation_status !== "pending" ? statusLabel(draft.generation_status) + " · " : ""}Updated {new Date(draft.updated_at).toLocaleString()}</small>
                     <p>{draft.caption}</p>
+                    {draft.media_status === "generated" && draft.media_url && (
+                      <a className="media-preview" href={draft.media_url} target="_blank" rel="noreferrer">
+                        View generated visual
+                      </a>
+                    )}
                   </div>
                   <div className="draft-actions">
                     <span className={`status ${draft.status === "approved" ? "approved" : draft.status === "in_review" ? "needs-review" : "draft"}`}>
