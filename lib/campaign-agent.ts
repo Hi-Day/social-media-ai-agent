@@ -1,4 +1,5 @@
 import { generateCaption, type BrandContext } from "@/lib/agent";
+import { generateCampaignImage } from "@/lib/image-agent";
 
 export type CampaignContentTask = {
   id: string;
@@ -45,10 +46,28 @@ export async function executeCampaignTask(
   });
 
   const mediaRequired = !TEXT_TYPES.has(contentType);
+  if (!mediaRequired) {
+    return {
+      caption,
+      mediaRequired: false,
+      mediaStatus: "generated",
+      mediaUrl: null,
+      mediaMetadata: {},
+    };
+  }
+
+  const image = await generateCampaignImage(task, campaign, brand);
 
   return {
     caption,
-    mediaRequired,
-    mediaStatus: mediaRequired ? "provider_unavailable" : "generated",
+    mediaRequired: true,
+    mediaStatus: "generated",
+    mediaUrl: image.url,
+    mediaMetadata: {
+      provider: image.provider,
+      model_codename: image.modelCodename,
+      aspect_ratio: image.aspectRatio,
+      ...(image.metadata ?? {}),
+    },
   };
 }
