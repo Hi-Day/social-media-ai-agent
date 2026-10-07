@@ -55,15 +55,35 @@ export async function POST(req: Request) {
 
     if (!rows.length) return NextResponse.json({ error: "The selected package has no content tasks." }, { status: 400 });
 
-    const { data: drafts, error: draftError } = await supabase.from("content_drafts")
-      .insert(rows)
-      .select("id,title,platform,status,campaign_id,package_id,content_type,model_codename,estimated_credits,created_at,updated_at");
-    if (draftError) return NextResponse.json({ error: draftError.message }, { status: 500 });
+    const { data: transactionResult, error: transactionError } = await supabase.rpc(
+      "select_campaign_package",
+      {
+        p_workspace_id: workspaceId,
+        p_campaign_id: campaignId,
+        p_package_code: packageCode,
+        p_tasks: rows,
+      },
+    );
 
-    const { error: campaignError } = await supabase.from("campaigns")
-      .update({ selected_package: packageCode, status: "planned", updated_at: new Date().toISOString() })
-      .eq("id", campaignId).eq("workspace_id", workspaceId);
-    if (campaignError) return NextResponse.json({ error: campaignError.message }, { status: 500 });
+    if (transactionError) {
+      const status = ["23505"].includes(transactionError.code ?? "")
+        ? 409
+        : ["42501"].includes(transactionError.code ?? "")
+          ? 403
+          : ["P0002"].includes(transactionError.code ?? "")
+            ? 404
+            : 500;
+      return NextResponse.json({ error: transactionError.message }, { status });
+    }
+
+    const { data: drafts, error: draftError } = await supabase
+      .from("content_drafts")
+      .select("id,title,platform,status,campaign_id,package_id,content_type,model_codename,estimated_credits,created_at,updated_at")
+      .eq("campaign_id", campaignId)
+      .eq("package_id", pkg.id)
+      .order("created_at");
+
+    if (draftError) return NextResponse.json({ error: draftError.message }, { status: 500 });
 
     return NextResponse.json({ campaignId, packageCode, estimatedCredits: pkg.estimated_credits, tasks: drafts ?? [] }, { status: 201 });
   } catch (error) {
