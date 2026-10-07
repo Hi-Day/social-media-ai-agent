@@ -81,8 +81,8 @@ function makePackage(
       throw new Error(`Model ${requested} is disabled for ${cap} in this workspace.`);
     }
     const codename = requested ?? auto.codename;
-    const selected = chooseWithPolicy(cap, imp, budget, policy);
-    const credits = codename === selected.codename ? selected.credits : chooseAutomaticModel(cap, imp, "premium").credits;
+    const selected = profilesFor(cap).find((profile) => profile.codename === codename);
+    const credits = selected?.credits ?? auto.credits;
     return { platform, type, capability: cap, count, importance: imp, codename, credits_per_asset: credits };
   });
   const estimatedCredits = estimateCredits(items.map((item) => ({ capability: item.capability, count: item.count, codename: item.codename })));
