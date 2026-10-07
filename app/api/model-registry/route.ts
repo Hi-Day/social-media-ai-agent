@@ -57,10 +57,14 @@ export async function GET(request: Request) {
     .select("capability,default_codename,enabled_codenames")
     .eq("workspace_id", workspaceId);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error && error.code !== "42P01") {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   const byCapability = new Map((rows ?? []).map((row) => [row.capability, row]));
-  const policies = CAPABILITIES.map((capability) => normalizePolicy(capability, byCapability.get(capability)));
+  const policies = CAPABILITIES.map((capability) =>
+    normalizePolicy(capability, byCapability.get(capability)),
+  );
 
   return NextResponse.json({
     editable: role === "owner" || role === "admin",
