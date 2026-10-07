@@ -118,7 +118,9 @@ export async function POST(req: Request) {
       .from("workspace_model_policies")
       .select("capability,default_codename,enabled_codenames")
       .eq("workspace_id", workspaceId);
-    if (policyError) return NextResponse.json({ error: policyError.message }, { status: 500 });
+    if (policyError && policyError.code !== "42P01") {
+      return NextResponse.json({ error: policyError.message }, { status: 500 });
+    }
 
     const policies = (policyRows ?? []).map((row) => ({
       capability: row.capability as Capability,
