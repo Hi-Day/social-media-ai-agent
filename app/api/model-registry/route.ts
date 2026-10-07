@@ -3,8 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { MODEL_PROFILES, type Capability, type ModelCodename } from "@/lib/model-registry";
 
 const CAPABILITIES: Capability[] = ["text", "image", "video", "voice", "stt"];
-const CODENAMES = ["Swift", "Balance", "Pro", "Studio", "Cinematic"] as const;
-
 function defaultsFor(capability: Capability) {
   return MODEL_PROFILES
     .filter((profile) => profile.capability === capability)
@@ -29,7 +27,7 @@ function normalizePolicy(capability: Capability, row?: { default_codename: strin
   return { capability, default_codename: defaultCodename, enabled_codenames: safeEnabled };
 }
 
-async function getContext(workspaceId: string) {
+type ModelPolicyRow = {\n  capability: Capability;\n  default_codename: string;\n  enabled_codenames: unknown;\n};\n\ntype ModelPolicyInput = {\n  capability?: unknown;\n  default_codename?: unknown;\n  enabled_codenames?: unknown;\n};\n\nasync function getContext(workspaceId: string) {
   const supabase = await createClient();
   const { data: auth, error: authError } = await supabase.auth.getUser();
   if (authError || !auth.user) return { supabase, user: null, role: null };
@@ -61,7 +59,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const byCapability = new Map((rows ?? []).map((row) => [row.capability, row]));
+  const policyRows = (rows ?? []) as unknown as ModelPolicyRow[];\n  const byCapability = new Map(policyRows.map((row) => [row.capability, row]));
   const policies = CAPABILITIES.map((capability) =>
     normalizePolicy(capability, byCapability.get(capability)),
   );
@@ -76,7 +74,7 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   const body = await request.json().catch(() => ({}));
   const workspaceId = typeof body.workspaceId === "string" ? body.workspaceId : "";
-  const policies = Array.isArray(body.policies) ? body.policies : [];
+  const policies: ModelPolicyInput[] = Array.isArray(body.policies) ? body.policies : [];
 
   if (!workspaceId || policies.length === 0) {
     return NextResponse.json({ error: "workspaceId and policies are required." }, { status: 400 });
@@ -108,7 +106,7 @@ export async function PUT(request: Request) {
     return { workspace_id: workspaceId, capability, default_codename: defaultCodename, enabled_codenames: enabled, updated_at: new Date().toISOString() };
   });
 
-  const unique = new Map(normalized.map((item) => [item.capability, item]));
+  const unique = new Map(normalized.map((item: typeof normalized[number]) => [item.capability, item]));
   const { error } = await supabase
     .from("workspace_model_policies")
     .upsert([...unique.values()], { onConflict: "workspace_id,capability" });
