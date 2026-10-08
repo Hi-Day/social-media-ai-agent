@@ -21,4 +21,16 @@ describe("workflow migration integrity", () => {
     expect(sql).toContain("update approvals set status");
     expect(sql).toContain("update content_drafts set status");
   });
+
+  it("adds the persistent learning loop foundation with tenant isolation", () => {
+    const sql = migration("012_agent_learning_foundation.sql");
+    expect(sql).toContain("create table if not exists public.agent_memories");
+    expect(sql).toContain("create table if not exists public.performance_insights");
+    expect(sql).toContain("create table if not exists public.agent_recommendations");
+    expect(sql).toContain("alter table public.agent_memories enable row level security");
+    expect(sql).toContain("alter table public.performance_insights enable row level security");
+    expect(sql).toContain("alter table public.agent_recommendations enable row level security");
+    expect(sql).toContain("private.is_workspace_member(workspace_id)");
+    expect(sql).toContain("risk_level in ('low','medium','high','critical')");
+  });
 });
