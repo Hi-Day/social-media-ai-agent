@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [demoLoading, setDemoLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
 
   async function tryDemo() {
     setDemoLoading(true);
@@ -24,20 +25,64 @@ export default function LoginPage() {
     try {
       const supabase = createClient();
       const { error: demoError } = await supabase.auth.signInAnonymously();
-      if (demoError) throw demoError;
+      if (demoError) {
+        if (demoError.code === "anonymous_provider_disabled") {
+          throw new Error(
+            "Demo mode is disabled in the Supabase project. Enable Authentication → Providers → Anonymous.",
+          );
+        }
+        throw demoError;
+      }
+
       await supabase.auth.updateUser({
         data: { workspace_name: "SocialOS Demo Workspace" },
       });
       router.replace("/");
       router.refresh();
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? `Demo mode is not enabled yet. In Supabase, enable Authentication → Providers → Anonymous. Details: ${err.message}`
-          : "Unable to start demo mode.",
-      );
+      setError(err instanceof Error ? err.message : "Unable to start demo mode.");
     } finally {
       setDemoLoading(false);
+    }
+  }
+
+  function verificationRedirectUrl() {
+    return (
+      (process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, "") +
+      "/auth/callback"
+    );
+  }
+
+  async function resendVerification() {
+    if (!email.trim()) {
+      setError("Enter your email address first.");
+      return;
+    }
+
+    setResendLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const supabase = createClient();
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email: email.trim(),
+        options: { emailRedirectTo: verificationRedirectUrl() },
+      });
+
+      if (resendError) throw resendError;
+      setMessage(
+        "A new verification email has been requested. Check your inbox and spam folder.",
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? `Unable to resend verification email: ${err.message}`
+          : "Unable to resend verification email.",
+      );
+    } finally {
+      setResendLoading(false);
     }
   }
 
@@ -55,7 +100,14 @@ export default function LoginPage() {
           email: email.trim(),
           password,
         });
-        if (signInError) throw signInError;
+        if (signInError) {
+          if (signInError.code === "email_not_confirmed") {
+            throw new Error(
+              "Your email is not verified yet. Check your inbox or request a new verification email below.",
+            );
+          }
+          throw signInError;
+        }
         router.replace("/");
         router.refresh();
         return;
@@ -66,14 +118,16 @@ export default function LoginPage() {
         password,
         options: {
           data: { workspace_name: workspace.trim() || "My Workspace" },
-          emailRedirectTo: (process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, "") + "/auth/callback",
+          emailRedirectTo: verificationRedirectUrl(),
         },
       });
 
       if (signUpError) throw signUpError;
 
       if (!data.session) {
-        setMessage("Account created. Check your email to confirm the account, then sign in.");
+        setMessage(
+          "Account created. Check your email to confirm the account, then sign in. If it does not arrive, use the resend button below.",
+        );
       } else {
         router.replace("/");
         router.refresh();
@@ -144,7 +198,18 @@ export default function LoginPage() {
           {error && <div className="auth-message error">{error}</div>}
           {message && <div className="auth-message success">{message}</div>}
 
-          <button className="primary auth-submit" disabled={loading || demoLoading}>
+          {mode === "signup" && message && (
+            <button
+              type="button"
+              className="auth-switch"
+              onClick={resendVerification}
+              disabled={loading || demoLoading || resendLoading}
+            >
+              {resendLoading ? "Sending verification email…" : "Resend verification email"}
+            </button>
+          )}
+
+          <button className="primary auth-submit" disabled={loading || demoLoading || resendLoading}>
             {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
           </button>
 
