@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { chooseAutomaticModel, estimateCredits, getProfile, type Capability, type ModelCodename } from "@/lib/model-registry";
+import { chooseAutomaticModel, estimateCredits, getProfile, profilesFor, type Capability, type ModelCodename } from "@/lib/model-registry";
 
 const PACKAGES = {
   starter: {
@@ -41,16 +41,48 @@ const PACKAGES = {
 type PackageCode = keyof typeof PACKAGES;
 type Importance = "supporting" | "core" | "hero";
 
-function makePackage(code: PackageCode, mode: "automatic" | "manual", overrides: Record<string, ModelCodename>) {
+type WorkspacePolicy = { capability: Capability; default_codename: ModelCodename; enabled_codenames: ModelCodename[] };
+
+function chooseWithPolicy(
+  capability: Capability,
+  importance: Importance,
+  budget: "economy" | "balanced" | "premium",
+  policy?: WorkspacePolicy,
+) {
+  const automatic = chooseAutomaticModel(capability, importance, budget);
+  if (!policy) return automatic;
+
+  const enabled = profilesFor(capability).filter((profile) => policy.enabled_codenames.includes(profile.codename));
+  if (!enabled.length) return automatic;
+
+  const preferred = enabled.find((profile) => profile.codename === policy.default_codename);
+  if (preferred) return preferred;
+
+  return enabled
+    .slice()
+    .sort((a, b) => b.quality - a.quality || b.speed - a.speed || a.credits - b.credits)[0] ?? automatic;
+}
+
+function makePackage(
+  code: PackageCode,
+  mode: "automatic" | "manual",
+  overrides: Record<string, ModelCodename>,
+  policies: WorkspacePolicy[],
+) {
   const template = PACKAGES[code];
   const items = template.items.map(([platform, type, capability, count, importance]) => {
     const cap = capability as Capability;
     const imp = importance as Importance;
     const budget = code === "starter" ? "economy" : code === "growth" ? "balanced" : "premium";
-    const auto = chooseAutomaticModel(cap, imp, budget);
-    const codename = mode === "manual" && overrides[cap] ? overrides[cap] : auto.codename;
-    const selected = chooseAutomaticModel(cap, imp, budget);
-    const credits = codename === selected.codename ? selected.credits : chooseAutomaticModel(cap, imp, "premium").credits;
+    const policy = policies.find((item) => item.capability === cap);
+    const auto = chooseWithPolicy(cap, imp, budget, policy);
+    const requested = mode === "manual" && overrides[cap] ? overrides[cap] : undefined;
+    if (requested && policy && !policy.enabled_codenames.includes(requested)) {
+      throw new Error(`Model ${requested} is disabled for ${cap} in this workspace.`);
+    }
+    const codename = requested ?? auto.codename;
+    const selected = profilesFor(cap).find((profile) => profile.codename === codename);
+    const credits = selected?.credits ?? auto.credits;
     return { platform, type, capability: cap, count, importance: imp, codename, credits_per_asset: credits };
   });
   const estimatedCredits = estimateCredits(items.map((item) => ({ capability: item.capability, count: item.count, codename: item.codename })));
@@ -82,7 +114,25 @@ export async function POST(req: Request) {
     const { data: membership } = await supabase.from("workspace_members").select("role").eq("workspace_id", workspaceId).eq("user_id", auth.user.id).maybeSingle();
     if (!membership) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const packages = (["starter", "growth", "signature"] as PackageCode[]).map((code) => makePackage(code, mode, overrides));
+    const { data: policyRows, error: policyError } = await supabase
+      .from("workspace_model_policies")
+      .select("capability,default_codename,enabled_codenames")
+      .eq("workspace_id", workspaceId);
+    if (policyError && policyError.code !== "42P01") {
+      return NextResponse.json({ error: policyError.message }, { status: 500 });
+    }
+
+    const policies = (policyRows ?? []).map((row) => ({
+      capability: row.capability as Capability,
+      default_codename: row.default_codename as ModelCodename,
+      enabled_codenames: Array.isArray(row.enabled_codenames)
+        ? row.enabled_codenames.filter((value): value is ModelCodename => typeof value === "string")
+        : [],
+    }));
+
+    const packages = (["starter", "growth", "signature"] as PackageCode[]).map((code) =>
+      makePackage(code, mode, overrides, policies),
+    );
     const { data: campaign, error } = await supabase.from("campaigns").insert({
       workspace_id: workspaceId, name, objective, audience: audience || null, status: "planning",
       plan: { model_mode: mode, packages },
