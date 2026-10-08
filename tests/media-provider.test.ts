@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getImageProvider } from "@/lib/media-provider";
+import { getImageProvider } from "../lib/media-provider";
 
 afterEach(() => vi.unstubAllEnvs());
 
