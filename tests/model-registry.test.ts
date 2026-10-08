@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MODEL_PROFILES, chooseAutomaticModel, estimateCredits, getProfile, profilesFor } from "@/lib/model-registry";
+import { MODEL_PROFILES, chooseAutomaticModel, estimateCredits, getProfile, profilesFor } from "../lib/model-registry";
 
 describe("model registry", () => {
   it("keeps capability profiles internally consistent", () => {
