@@ -97,7 +97,9 @@ export async function POST(req: Request) {
           audience: campaign.audience,
         }, brandContext);
 
-        const generationStatus = result.mediaRequired ? "provider_unavailable" : "generated";
+        const generationStatus = result.mediaRequired && result.mediaStatus !== "generated"
+          ? result.mediaStatus === "provider_unavailable" ? "provider_unavailable" : "failed"
+          : "generated";
 
         const { error: updateError } = await supabase
           .from("content_drafts")
@@ -107,6 +109,9 @@ export async function POST(req: Request) {
             generation_status: generationStatus,
             generation_error: null,
             generated_at: new Date().toISOString(),
+            media_status: result.mediaRequired ? result.mediaStatus : "not_required",
+            media_url: result.mediaUrl ?? null,
+            media_metadata: result.mediaMetadata ?? {},
             generation_metadata: {
               campaign_execution: true,
               media_required: result.mediaRequired,
@@ -120,7 +125,7 @@ export async function POST(req: Request) {
         if (updateError) throw new Error(updateError.message);
 
         generated += 1;
-        if (result.mediaRequired) mediaPending += 1;
+        if (result.mediaRequired && result.mediaStatus !== "generated") mediaPending += 1;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Generation failed";
         errors.push(`${task.id}: ${message}`);
