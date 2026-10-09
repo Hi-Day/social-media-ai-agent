@@ -252,8 +252,8 @@ export default function Home() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load budget settings.");
       const budget = data.budget as UsageBudgetData | null;
-      setUsageBudget(budget);
-      if (budget?.monthly_credit_limit != null) setBudgetLimitInput(String(budget.monthly_credit_limit));
+      setUsageBudget(budget ? { ...budget, editable: Boolean(data.editable) } : null);
+      setBudgetLimitInput(budget?.monthly_credit_limit != null ? String(budget.monthly_credit_limit) : "");
       setBudgetHardLimitInput(budget?.hard_limit ?? true);
       setBudgetError("");
     } catch (error) {
