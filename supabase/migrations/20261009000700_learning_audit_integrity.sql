@@ -34,7 +34,7 @@ begin
   if p_resource_type <> 'performance_observation' or v_expected < 1 or v_expected > 100 or v_actual < v_expected then raise exception 'audit_event_state_mismatch'; end if;
  elsif p_action = 'agent.learning.analyzed' then
   v_expected := coalesce((p_metadata->>'insight_count')::integer, 0);
-  if v_expected < 1 or coalesce((p_metadata->>'recommendation_count')::integer, 0) < 1 or not exists (select 1 from public.performance_insights pi where pi.workspace_id = p_workspace_id and pi.created_at >= now() - interval '5 minutes' and (p_resource_id is null or pi.campaign_id = p_resource_id)) then raise exception 'audit_event_state_mismatch'; end if;
+  if v_expected < 1 or coalesce((p_metadata->>'recommendation_count')::integer, 0) < 1 or not exists (select 1 from public.performance_insights pi where pi.workspace_id = p_workspace_id and pi.created_at >= now() - interval '5 minutes' and (p_resource_id is null or pi.campaign_id = p_resource_id)) or not exists (select 1 from public.agent_recommendations r where r.workspace_id = p_workspace_id and r.created_at >= now() - interval '5 minutes' and (p_resource_id is null or r.campaign_id = p_resource_id)) then raise exception 'audit_event_state_mismatch'; end if;
   select count(*) into v_actual from public.performance_insights pi where pi.workspace_id = p_workspace_id and pi.created_at >= now() - interval '5 minutes' and (p_resource_id is null or pi.campaign_id = p_resource_id);
   if v_actual < v_expected then raise exception 'audit_event_state_mismatch'; end if;
  elsif p_action = 'agent.recommendation.approved' then
