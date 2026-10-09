@@ -110,12 +110,39 @@ export async function POST(req: Request) {
       return NextResponse.json({ campaignId, generated: 0, remaining: 0, message: "No pending campaign tasks." });
     }
 
+    const batchTasks = tasks.slice(0, 25);
+    const requestedCredits = batchTasks.reduce((sum, task) => sum + Math.max(0, Number(task.estimated_credits) || 0), 0);
+    const { data: reservationData, error: reservationError } = await supabase.rpc("reserve_campaign_usage", {
+      p_workspace_id: workspaceId,
+      p_campaign_id: campaignId,
+      p_credits: requestedCredits,
+    });
+    if (reservationError) {
+      return NextResponse.json({ error: "Unable to reserve campaign credits. Confirm the workspace budget migration has been applied." }, { status: 500 });
+    }
+    const reservation = Array.isArray(reservationData) ? reservationData[0] : reservationData;
+    if (reservation && reservation.allowed === false) {
+      return NextResponse.json({
+        error: "This campaign would exceed the workspace monthly credit budget. Increase the budget or choose a smaller campaign package.",
+        budget: {
+          monthlyCreditLimit: reservation.monthly_credit_limit,
+          usedCredits: reservation.used_credits,
+          reservedCredits: reservation.reserved_credits,
+          remainingCredits: reservation.remaining_credits,
+          requestedCredits,
+        },
+      }, { status: 402 });
+    }
+    const reservationId = typeof reservation?.reservation_id === "string" ? reservation.reservation_id : null;
+
     let generated = 0;
     let mediaPending = 0;
+    let attempted = 0;
+    let usageLoggingFailed = false;
     let estimatedCreditsLogged = 0;
     const errors: string[] = [];
 
-    for (const task of tasks.slice(0, 25)) {
+    for (const task of batchTasks) {
       // Atomically claim only tasks that are still pending/failed. Concurrent
       // requests must not generate the same asset or spend credits twice.
       const { data: claimedTask, error: claimError } = await supabase
@@ -132,6 +159,7 @@ export async function POST(req: Request) {
         continue;
       }
       if (!claimedTask) continue;
+      attempted += 1;
 
       try {
         const result = await executeCampaignTask(task, {
@@ -190,6 +218,7 @@ export async function POST(req: Request) {
           cost_source: result.usage.costSource,
         });
         if (usageError) {
+          usageLoggingFailed = true;
           errors.push(`${task.id}: Content was generated, but usage metering could not be saved.`);
         } else {
           estimatedCreditsLogged += estimatedCredits;
@@ -220,6 +249,7 @@ export async function POST(req: Request) {
           cost_source: "not_available",
         });
         if (usageError) {
+          usageLoggingFailed = true;
           errors.push(`${task.id}: Failed-attempt usage could not be recorded.`);
         } else {
           estimatedCreditsLogged += estimatedCredits;
@@ -228,6 +258,16 @@ export async function POST(req: Request) {
     }
 
     const remaining = Math.max(0, tasks.length - Math.min(tasks.length, 25));
+
+    if (reservationId && !usageLoggingFailed) {
+      const { error: finalizeError } = await supabase.rpc("finalize_campaign_usage_reservation", {
+        p_reservation_id: reservationId,
+        p_status: attempted > 0 ? "consumed" : "released",
+      });
+      if (finalizeError) errors.push("Campaign usage reservation could not be finalized; it will expire automatically if left active.");
+    } else if (reservationId && usageLoggingFailed) {
+      errors.push("The credit reservation remains active temporarily because usage metering failed; it will expire automatically.");
+    }
 
     await supabase
       .from("campaigns")
