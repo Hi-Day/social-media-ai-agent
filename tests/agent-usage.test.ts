@@ -40,6 +40,35 @@ describe("provider usage capture for text generation", () => {
     expect(result.usage.costSource).toBe("not_available");
   });
 
+  it("uses the configured codename model and treats malformed usage as unavailable", async () => {
+    process.env.OPENROUTER_API_KEY = "test-key";
+    process.env.OPENROUTER_MODEL_SWIFT = "provider/fast-model";
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      const request = JSON.parse(String(init?.body));
+      expect(request.model).toBe("provider/fast-model");
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: "Draft." } }],
+        usage: { prompt_tokens: -1, completion_tokens: "10", total_tokens: Number.NaN, cost: -0.5 },
+      }), { status: 200 });
+    });
+
+    const result = await generateCaptionWithUsage("Write a post", {}, { codename: "Swift" });
+    expect(result.usage).toEqual({
+      promptTokens: null,
+      completionTokens: null,
+      totalTokens: null,
+      providerCostUsd: null,
+      costSource: "not_available",
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("does not silently claim demo output when the provider request fails", async () => {
+    process.env.OPENROUTER_API_KEY = "test-key";
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("upstream failure", { status: 503 }));
+    await expect(generateCaptionWithUsage("Write a post")).rejects.toThrow("LLM gateway error");
+  });
+
   it("marks fallback generation as demo rather than provider usage", async () => {
     delete process.env.OPENROUTER_API_KEY;
     const result = await generateCaptionWithUsage("Write a post");
