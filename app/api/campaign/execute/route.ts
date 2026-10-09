@@ -76,6 +76,27 @@ export async function POST(req: Request) {
     }
 
     const brandContext: BrandContext = brand ?? {};
+
+    // Recover tasks abandoned by a crashed/timed-out serverless invocation.
+    // Claiming a task refreshes updated_at, so only genuinely stale work is reset.
+    const now = new Date();
+    const staleBefore = new Date(now.getTime() - 15 * 60 * 1000).toISOString();
+    const { error: recoveryError } = await supabase
+      .from("content_drafts")
+      .update({
+        generation_status: "failed",
+        generation_error: "Previous generation was interrupted or timed out. Retry campaign execution to resume this task.",
+        updated_at: now.toISOString(),
+      })
+      .eq("workspace_id", workspaceId)
+      .eq("campaign_id", campaignId)
+      .eq("generation_status", "generating")
+      .lt("updated_at", staleBefore);
+
+    if (recoveryError) {
+      return NextResponse.json({ error: "Unable to recover interrupted campaign tasks." }, { status: 500 });
+    }
+
     const { data: tasks, error: taskError } = await supabase
       .from("content_drafts")
       .select("id,title,platform,content_type,model_codename,estimated_credits,generation_status")
@@ -98,7 +119,7 @@ export async function POST(req: Request) {
       // requests must not generate the same asset or spend credits twice.
       const { data: claimedTask, error: claimError } = await supabase
         .from("content_drafts")
-        .update({ generation_status: "generating", generation_error: null })
+        .update({ generation_status: "generating", generation_error: null, updated_at: new Date().toISOString() })
         .eq("id", task.id)
         .eq("workspace_id", workspaceId)
         .in("generation_status", ["pending", "failed"])
@@ -134,6 +155,7 @@ export async function POST(req: Request) {
                 : "Required media asset was not generated. Review this task before publishing."
               : null,
             generated_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
             media_status: result.mediaRequired ? result.mediaStatus : "not_required",
             media_url: result.mediaUrl ?? null,
             media_metadata: result.mediaMetadata ?? {},
@@ -156,7 +178,7 @@ export async function POST(req: Request) {
         errors.push(`${task.id}: ${message}`);
         await supabase
           .from("content_drafts")
-          .update({ generation_status: "failed", generation_error: message })
+          .update({ generation_status: "failed", generation_error: message, updated_at: new Date().toISOString() })
           .eq("id", task.id)
           .eq("workspace_id", workspaceId);
       }
