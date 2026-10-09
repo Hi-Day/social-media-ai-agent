@@ -13,10 +13,13 @@ type Connection = {
   tokenExpired: boolean;
 };
 type Draft = { id: string; title: string | null; platform: string | null; caption: string; status: string };
+type Publication = { id: string; draft_id: string; provider: string; status: "pending" | "published" | "failed" | "unknown"; provider_post_id: string | null; provider_status_code: number | null; error_code: string | null; started_at: string; completed_at: string | null; created_at: string };
 
 export default function LinkedInIntegration({ workspaceId }: { workspaceId: string }) {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [publications, setPublications] = useState<Publication[]>([]);
+  const [historyError, setHistoryError] = useState("");
   const [selectedDraft, setSelectedDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -28,18 +31,26 @@ export default function LinkedInIntegration({ workspaceId }: { workspaceId: stri
     setLoading(true);
     setError("");
     try {
-      const [connectionResponse, draftResponse] = await Promise.all([
+      const [connectionResponse, draftResponse, publicationResponse] = await Promise.all([
         fetch("/api/integrations/linkedin/connections?workspaceId=" + encodeURIComponent(workspaceId), { cache: "no-store" }),
         fetch("/api/content/drafts?workspaceId=" + encodeURIComponent(workspaceId), { cache: "no-store" }),
+        fetch("/api/integrations/linkedin/publications?workspaceId=" + encodeURIComponent(workspaceId), { cache: "no-store" }),
       ]);
       const connectionData = await connectionResponse.json();
       const draftData = await draftResponse.json();
+      const publicationData = await publicationResponse.json();
       if (!connectionResponse.ok) throw new Error(connectionData.error || "Could not load LinkedIn connections.");
       if (!draftResponse.ok) throw new Error(draftData.error || "Could not load drafts.");
       setConnections(connectionData.connections ?? []);
       setDrafts((draftData.drafts ?? []).filter((draft: Draft) =>
         draft.status === "approved" && /(linkedin|multi-platform)/i.test(draft.platform ?? "") && Boolean(draft.caption?.trim()),
       ));
+      if (publicationResponse.ok) {
+        setPublications(publicationData.publications ?? []);
+        setHistoryError("");
+      } else {
+        setHistoryError(publicationData.error || "Publication history is temporarily unavailable.");
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load social accounts.");
     } finally {
@@ -96,6 +107,7 @@ export default function LinkedInIntegration({ workspaceId }: { workspaceId: stri
       if (!response.ok) throw new Error(data.error || "Publishing failed.");
       setMessage("Published successfully. LinkedIn post ID: " + (data.postId || "accepted by LinkedIn") + ". Verify the post in LinkedIn.");
       setSelectedDraft("");
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Publishing failed.");
     } finally { setBusy(false); }
@@ -150,6 +162,28 @@ export default function LinkedInIntegration({ workspaceId }: { workspaceId: stri
             </div>
           </>
         ) : <div className="empty-inline">No approved LinkedIn-compatible text drafts yet. Approve a draft in Content Calendar first.</div>}
+      </div>
+      <div className="panel">
+        <div className="panel-head">
+          <div><small>AUDIT TRAIL</small><h3>Publication history</h3></div>
+          <button onClick={() => void load()} disabled={loading || busy}><RefreshCw size={15} /> Refresh</button>
+        </div>
+        {historyError ? <div className="auth-message error">{historyError}</div> : publications.length ? (
+          <div className="integration-list">
+            {publications.map((publication) => (
+              <div className="draft-row" key={publication.id}>
+                <div className="draft-copy">
+                  <b>{publication.status.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase())}</b>
+                  <small>{new Date(publication.created_at).toLocaleString()} · Draft {publication.draft_id.slice(0, 8)}</small>
+                  {publication.error_code && <small>Reason: {publication.error_code}</small>}
+                  {publication.provider_status_code && <small>Provider status: {publication.provider_status_code}</small>}
+                  {publication.provider_post_id && <small>Post ID: {publication.provider_post_id}</small>}
+                  {publication.status === "unknown" && <small>Verify the LinkedIn feed before retrying; the provider outcome is uncertain.</small>}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : <div className="empty-inline">No LinkedIn publication attempts recorded yet.</div>}
       </div>
       {message && <div className="auth-message success"><CheckCircle2 size={16} /> {message}</div>}
       {error && <div className="auth-message error">{error}</div>}
