@@ -45,7 +45,8 @@ export async function GET(request: Request) {
   const totalEstimatedCredits = rows.reduce((sum, event) => sum + Number(event.estimated_credits || 0), 0);
   const counts = rows.reduce(
     (summary, event) => {
-      summary[event.result_status] += 1;
+      const status = event.result_status as keyof typeof summary;
+      if (status in summary) summary[status] += 1;
       return summary;
     },
     { generated: 0, media_pending: 0, failed: 0 },
