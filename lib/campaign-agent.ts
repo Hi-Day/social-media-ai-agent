@@ -84,7 +84,7 @@ export async function executeCampaignTask(
   const imageUsage = (image.metadata?.usage ?? {}) as Partial<ProviderUsage>;
   const textCost = textResult.usage.providerCostUsd;
   const imageCost = typeof imageUsage.providerCostUsd === "number" ? imageUsage.providerCostUsd : null;
-  const costSources = [textResult.usage.costSource, imageUsage.costSource].filter((value): value is string => typeof value === "string");
+  const costSources = [textResult.usage.costSource, imageUsage.costSource].filter((value) => typeof value === "string");
   const hasMissingCost = costSources.some((value) => value !== "provider_reported");
   const knownCostCount = [textCost, imageCost].filter((value) => value !== null).length;
   const usage: ProviderUsage = {
