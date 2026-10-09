@@ -888,9 +888,13 @@ export default function Home() {
                         {draft.generation_error}
                       </div>
                     )}
-                    {draft.media_status === "provider_unavailable" && !draft.generation_error && (
+                    {draft.media_status && !["generated", "not_required"].includes(draft.media_status) && !draft.generation_error && (
                       <div className="auth-message error" role="status">
-                        Required media is unavailable. Do not publish this draft until the asset is supplied.
+                        {draft.media_status === "pending"
+                          ? "Required media has not been generated yet. This draft cannot be submitted for approval."
+                          : draft.media_status === "provider_unavailable"
+                            ? "Required media provider is unavailable. Supply the asset before approval."
+                            : "Required media has failed. Retry generation or supply the asset before approval."}
                       </div>
                     )}
                   </div>
@@ -899,7 +903,7 @@ export default function Home() {
                       {statusLabel(draft.status)}
                     </span>
                     {draft.status === "draft" && (
-                      <button onClick={() => reviewDraft(draft.id, "submit")} disabled={reviewing}>Submit</button>
+                      <button onClick={() => reviewDraft(draft.id, "submit")} disabled={reviewing || Boolean(draft.media_status && !["generated", "not_required"].includes(draft.media_status))}>Submit</button>
                     )}
                     {draft.status === "in_review" && (
                       <>

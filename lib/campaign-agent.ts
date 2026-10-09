@@ -16,7 +16,7 @@ type CampaignContext = {
   audience: string | null;
 };
 
-const TEXT_TYPES = new Set(["LinkedIn Post", "Social Post", "Caption", "Text Post"]);
+const TEXT_TYPES = new Set(["Post", "LinkedIn Post", "Social Post", "Caption", "Text Post"]);
 const IMAGE_TYPES = new Set(["Carousel", "Image", "Story", "Static Post"]);
 const VIDEO_TYPES = new Set(["Reel", "Hero Reel", "Short Video", "Video"]);
 
