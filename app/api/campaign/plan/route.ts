@@ -108,6 +108,18 @@ export async function POST(req: Request) {
     const audience = typeof body.audience === "string" ? body.audience.trim() : "";
     const mode = body.modelMode === "manual" ? "manual" : "automatic";
     const overrides = body.modelOverrides && typeof body.modelOverrides === "object" ? body.modelOverrides : {};
+    if (mode === "manual") {
+      const supportedCapabilities: Capability[] = ["text", "image", "video", "voice", "stt"];
+      for (const [capability, codename] of Object.entries(overrides)) {
+        if (
+          !supportedCapabilities.includes(capability as Capability)
+          || typeof codename !== "string"
+          || !getProfile(capability as Capability, codename as ModelCodename)
+        ) {
+          return NextResponse.json({ error: `Unsupported model selection for ${capability}.` }, { status: 400 });
+        }
+      }
+    }
     if (!workspaceId || name.length < 2 || objective.length < 3) {
       return NextResponse.json({ error: "workspaceId, campaign name and objective are required." }, { status: 400 });
     }
