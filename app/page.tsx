@@ -496,8 +496,8 @@ export default function Home() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to execute campaign.");
       setCampaignExecutionMessage(
-        `Generated ${data.generated} content task${data.generated === 1 ? "" : "s"}.` +
-        (data.mediaPending ? ` ${data.mediaPending} visual task${data.mediaPending === 1 ? "" : "s"} still need a media provider.` : "") +
+        `Generated copy for ${data.generated} task${data.generated === 1 ? "" : "s"}.` +
+        (data.mediaPending ? ` ${data.mediaPending} required media asset${data.mediaPending === 1 ? "" : "s"} could not be generated; review the flagged drafts before publishing.` : "") +
         (data.remaining ? ` ${data.remaining} task${data.remaining === 1 ? "" : "s"} remain for the next execution batch.` : "")
       );
       await loadDrafts();
@@ -851,6 +851,16 @@ export default function Home() {
                       <a className="media-preview" href={draft.media_url} target="_blank" rel="noreferrer">
                         View generated visual
                       </a>
+                    )}
+                    {draft.generation_error && (
+                      <div className="auth-message error" role="status">
+                        {draft.generation_error}
+                      </div>
+                    )}
+                    {draft.media_status === "provider_unavailable" && !draft.generation_error && (
+                      <div className="auth-message error" role="status">
+                        Required media is unavailable. Do not publish this draft until the asset is supplied.
+                      </div>
                     )}
                   </div>
                   <div className="draft-actions">

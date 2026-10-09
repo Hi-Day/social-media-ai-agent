@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabase
     .from("content_drafts")
-    .select("id, workspace_id, title, platform, caption, status, generation_status, generation_error, created_at, updated_at")
+    .select("id, workspace_id, title, platform, caption, status, generation_status, generation_error, media_status, media_url, created_at, updated_at")
     .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false });
 
