@@ -1,4 +1,4 @@
-import { generateCaption, type BrandContext } from "@/lib/agent";
+import { generateCaptionWithUsage, type BrandContext, type ProviderUsage } from "@/lib/agent";
 import { generateCampaignImage } from "@/lib/image-agent";
 
 export type CampaignContentTask = {
@@ -39,11 +39,12 @@ export async function executeCampaignTask(
     "Do not invent product facts, claims, statistics, customers, partnerships, awards, or achievements.",
   ].filter(Boolean).join("\n");
 
-  const caption = await generateCaption(textRequest, brand, {
+  const textResult = await generateCaptionWithUsage(textRequest, brand, {
     codename: task.model_codename || undefined,
     platform,
     contentType,
   });
+  const caption = textResult.caption;
 
   if (TEXT_TYPES.has(contentType)) {
     return {
@@ -52,6 +53,7 @@ export async function executeCampaignTask(
       mediaStatus: "not_required" as const,
       mediaUrl: null,
       mediaMetadata: {},
+      usage: textResult.usage,
     };
   }
 
@@ -62,6 +64,7 @@ export async function executeCampaignTask(
       mediaStatus: "provider_unavailable" as const,
       mediaUrl: null,
       mediaMetadata: { reason: "video_provider_not_implemented" },
+      usage: textResult.usage,
     };
   }
 
@@ -72,10 +75,33 @@ export async function executeCampaignTask(
       mediaStatus: "provider_unavailable" as const,
       mediaUrl: null,
       mediaMetadata: { reason: "unsupported_media_type", content_type: contentType },
+      usage: textResult.usage,
     };
   }
 
   const image = await generateCampaignImage(task, campaign, brand);
+
+  const imageUsage = (image.metadata?.usage ?? {}) as Partial<ProviderUsage>;
+  const textCost = textResult.usage.providerCostUsd;
+  const imageCost = typeof imageUsage.providerCostUsd === "number" ? imageUsage.providerCostUsd : null;
+  const costSources = [textResult.usage.costSource, imageUsage.costSource].filter((value): value is string => typeof value === "string");
+  const hasMissingCost = costSources.some((value) => value !== "provider_reported");
+  const knownCostCount = [textCost, imageCost].filter((value) => value !== null).length;
+  const usage: ProviderUsage = {
+    promptTokens: [textResult.usage.promptTokens, imageUsage.promptTokens].some((value) => typeof value === "number")
+      ? (textResult.usage.promptTokens ?? 0) + (typeof imageUsage.promptTokens === "number" ? imageUsage.promptTokens : 0)
+      : null,
+    completionTokens: [textResult.usage.completionTokens, imageUsage.completionTokens].some((value) => typeof value === "number")
+      ? (textResult.usage.completionTokens ?? 0) + (typeof imageUsage.completionTokens === "number" ? imageUsage.completionTokens : 0)
+      : null,
+    totalTokens: [textResult.usage.totalTokens, imageUsage.totalTokens].some((value) => typeof value === "number")
+      ? (textResult.usage.totalTokens ?? 0) + (typeof imageUsage.totalTokens === "number" ? imageUsage.totalTokens : 0)
+      : null,
+    providerCostUsd: knownCostCount ? (textCost ?? 0) + (imageCost ?? 0) : null,
+    costSource: knownCostCount && hasMissingCost ? "partial"
+      : knownCostCount ? "provider_reported"
+      : costSources.every((value) => value === "demo") ? "demo" : "not_available",
+  };
 
   return {
     caption,
@@ -88,5 +114,6 @@ export async function executeCampaignTask(
       aspect_ratio: image.aspectRatio,
       ...(image.metadata ?? {}),
     },
+    usage,
   };
 }
