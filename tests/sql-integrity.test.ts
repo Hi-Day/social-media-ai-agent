@@ -11,3 +11,14 @@ describe("workflow migration integrity", () => {
  it("adds the persistent learning loop foundation with tenant isolation", () => { const sql = migration("20261009000354_agent_learning_foundation.sql"); expect(sql).toContain("create table if not exists public.agent_memories"); expect(sql).toContain("create table if not exists public.performance_insights"); expect(sql).toContain("create table if not exists public.agent_recommendations"); expect(sql).toContain("alter table public.agent_memories enable row level security"); expect(sql).toContain("alter table public.performance_insights enable row level security"); expect(sql).toContain("alter table public.agent_recommendations enable row level security"); expect(sql).toContain("private.is_workspace_member(workspace_id)"); expect(sql).toContain("risk_level in ('low','medium','high','critical')"); });
  it("serializes campaign credit reservations against workspace monthly budgets", () => { const sql = migration("20261009001100_workspace_usage_budgets.sql"); expect(sql).toContain("create table if not exists public.workspace_usage_budgets"); expect(sql).toContain("create table if not exists public.campaign_usage_reservations"); expect(sql).toContain("for update"); expect(sql).toContain("create or replace function public.reserve_campaign_usage"); expect(sql).toContain("create or replace function public.finalize_campaign_usage_reservation"); expect(sql).toContain("workspace_forbidden"); expect(sql).toContain("campaign_execution_forbidden"); expect(sql).toContain("interval '30 minutes'"); });
 });
+describe("social publication integrity", () => {
+ it("audits publication attempts and prevents duplicate active or successful posts", () => {
+  const sql = migration("20261009001300_linkedin_publication_audit.sql");
+  expect(sql).toContain("create table if not exists public.social_publications");
+  expect(sql).toContain("alter table public.social_publications enable row level security");
+  expect(sql).toContain("where status in ('pending','published','unknown')");
+  expect(sql).toContain("provider_post_id is not null");
+  expect(sql).toContain("workspace admins can view social publications");
+  expect(sql).toContain("workspace admins can create social publications");
+ });
+});
