@@ -221,7 +221,7 @@ export default function Home() {
   }
 
   useEffect(() => {
-    if (tab === "Learning Loop" && workspaceId) void loadLearning(workspaceId);
+    if ((tab === "Learning Loop" || tab === "Analytics") && workspaceId) void loadLearning(workspaceId);
     if (tab === "Usage & Costs" && workspaceId) void loadUsage(workspaceId);
   }, [tab, workspaceId]);
 
@@ -1283,11 +1283,58 @@ export default function Home() {
           </div>
         )}
 
-        {["Engagement", "Analytics", "Audience"].includes(tab) && (
+        {tab === "Analytics" && (
+          <div className="learning-view">
+            <div className="studio-copy">
+              <span className="eyebrow">PERFORMANCE ANALYTICS</span>
+              <h2>Measure what your<br />content is doing.</h2>
+              <p>Review performance observations recorded for this workspace. Metrics are clearly labeled by platform and observation date.</p>
+            </div>
+            {learningError && <div className="learning-message learning-error" role="alert">{learningError}</div>}
+            <div className="learning-grid">
+              <div className="panel">
+                <small>RECORDED OBSERVATIONS</small>
+                <h3>{learningLoading && !learningData.observations.length ? "Loading…" : learningData.observations.length}</h3>
+                <p>Metric records available to this workspace.</p>
+              </div>
+              <div className="panel">
+                <small>PLATFORMS COVERED</small>
+                <h3>{new Set(learningData.observations.map((item) => item.platform)).size}</h3>
+                <p>Platforms with at least one observation.</p>
+              </div>
+              <div className="panel">
+                <small>METRIC TYPES</small>
+                <h3>{new Set(learningData.observations.map((item) => item.metric_key)).size}</h3>
+                <p>Distinct metrics recorded.</p>
+              </div>
+            </div>
+            <div className="panel" style={{ marginTop: 16 }}>
+              <div className="model-registry-head">
+                <div><small>OBSERVATION LOG</small><h3>Recent performance data</h3></div>
+                <button onClick={() => void loadLearning(workspaceId)} disabled={learningLoading}>{learningLoading ? "Refreshing…" : "Refresh"}</button>
+              </div>
+              {learningData.observations.length ? (
+                <div className="integration-list">
+                  {[...learningData.observations].sort((a, b) => new Date(b.observed_at).getTime() - new Date(a.observed_at).getTime()).slice(0, 30).map((item) => (
+                    <div className="draft-row" key={item.id}>
+                      <div className="draft-copy">
+                        <b>{item.metric_key.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase())}</b>
+                        <small>{item.platform} · {new Date(item.observed_at).toLocaleString()}</small>
+                      </div>
+                      <strong>{Number(item.value).toLocaleString(undefined, { maximumFractionDigits: 4 })}</strong>
+                    </div>
+                  ))}
+                </div>
+              ) : <div className="empty-inline">{learningLoading ? "Loading observations…" : "No performance observations yet. Record metrics in Learning Loop to start building your analytics history."}</div>}
+              <p className="learning-note">Data source: workspace observations entered into SocialOS. Automatic social-platform metrics, attribution, and engagement sync are not yet connected, so this view does not claim live analytics.</p>
+            </div>
+          </div>
+        )}
+        {["Engagement", "Audience"].includes(tab) && (
           <div className="empty">
             <Sparkles size={30} />
             <h2>{tab}</h2>
-            <p>Connect social accounts to unlock this module. The MVP currently focuses on content generation and human approval.</p>
+            <p>Connect supported social-platform APIs to unlock this module. SocialOS currently focuses on content generation, approval, and workspace-recorded performance observations.</p>
             <button className="primary" onClick={() => openTab("AI Studio")}>Try AI Studio</button>
           </div>
         )}
