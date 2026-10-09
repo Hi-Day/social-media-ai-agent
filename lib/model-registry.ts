@@ -52,7 +52,13 @@ function profileScore(profile: ModelProfile, targetQuality: number) {
 
 export function estimateCredits(items: Array<{ capability: Capability; count: number; codename?: ModelCodename }>) {
   return items.reduce((sum, item) => {
-    const profile = item.codename ? getProfile(item.capability, item.codename) : chooseAutomaticModel(item.capability, "core", "balanced");
-    return sum + (profile?.credits ?? 0) * item.count;
+    if (!Number.isFinite(item.count) || item.count < 0) {
+      throw new Error("invalid_credit_estimate_count");
+    }
+    const profile = item.codename
+      ? getProfile(item.capability, item.codename)
+      : chooseAutomaticModel(item.capability, "core", "balanced");
+    if (!profile) throw new Error("unsupported_model_profile");
+    return sum + profile.credits * item.count;
   }, 0);
 }
