@@ -55,9 +55,15 @@ type UsageData = {
     generated: number;
     media_pending: number;
     failed: number;
-    byModel: Record<string, { events: number; estimatedCredits: number }>;
+    knownProviderCostUsd: number;
+    totalKnownTokens: number;
+    providerReportedEvents: number;
+    partialCostEvents: number;
+    costUnknownEvents: number;
+    demoEvents: number;
+    byModel: Record<string, { events: number; estimatedCredits: number; knownProviderCostUsd: number; providerCostEvents: number }>;
   };
-  events: Array<{ campaign_id: string; content_draft_id: string; model_codename: string | null; estimated_credits: number; result_status: string; created_at: string }>;
+  events: Array<{ campaign_id: string; content_draft_id: string; model_codename: string | null; estimated_credits: number; result_status: string; provider_cost_usd: number | null; cost_source: string; total_tokens: number | null; created_at: string }>;
 };
 
 type Draft = {
@@ -1038,6 +1044,21 @@ export default function Home() {
                 <h3>{usageData?.summary.failed ?? "—"}</h3>
                 <p>Attempts that ended in failure.</p>
               </div>
+              <div className="panel">
+                <small>KNOWN PROVIDER COST (USD)</small>
+                <h3>{usageData ? usageData.summary.knownProviderCostUsd.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 6 }) : "—"}</h3>
+                <p>Only gateway-reported cost; partial totals may be incomplete.</p>
+              </div>
+              <div className="panel">
+                <small>KNOWN TOKENS</small>
+                <h3>{usageData ? usageData.summary.totalKnownTokens.toLocaleString() : "—"}</h3>
+                <p>Token totals returned by the gateway.</p>
+              </div>
+              <div className="panel">
+                <small>COST COVERAGE</small>
+                <h3>{usageData ? `${usageData.summary.providerReportedEvents} complete · ${usageData.summary.partialCostEvents} partial` : "—"}</h3>
+                <p>{usageData ? `${usageData.summary.costUnknownEvents} unknown · ${usageData.summary.demoEvents} demo` : "Provider cost availability"}</p>
+              </div>
             </div>
             <div className="panel" style={{ marginTop: 16 }}>
               <div className="model-registry-head">
@@ -1049,7 +1070,10 @@ export default function Home() {
               {usageData && Object.entries(usageData.summary.byModel).map(([model, summary]) => (
                 <div className="model-policy-row" key={model}>
                   <div><b>{model}</b><small>{summary.events} recorded attempts</small></div>
-                  <strong>{summary.estimatedCredits.toLocaleString(undefined, { maximumFractionDigits: 4 })} credits</strong>
+                  <div style={{ textAlign: "right" }}>
+                    <strong>{summary.estimatedCredits.toLocaleString(undefined, { maximumFractionDigits: 4 })} credits</strong>
+                    <small>{summary.providerCostEvents} cost record(s) · {summary.knownProviderCostUsd.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 6 })} known USD</small>
+                  </div>
                 </div>
               ))}
               <p className="learning-note">{usageData?.note ?? "Values are estimates of product credits, not actual model-provider invoice costs. Provider billing reconciliation is not yet implemented."}</p>
