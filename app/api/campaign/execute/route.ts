@@ -128,7 +128,11 @@ export async function POST(req: Request) {
             caption: result.caption,
             status: "draft",
             generation_status: generationStatus,
-            generation_error: null,
+            generation_error: result.mediaRequired && result.mediaStatus !== "generated"
+              ? result.mediaStatus === "provider_unavailable"
+                ? "Caption generated, but the required media asset could not be generated because its provider is unavailable."
+                : "Required media asset was not generated. Review this task before publishing."
+              : null,
             generated_at: new Date().toISOString(),
             media_status: result.mediaRequired ? result.mediaStatus : "not_required",
             media_url: result.mediaUrl ?? null,
@@ -173,8 +177,10 @@ export async function POST(req: Request) {
       remaining,
       errors,
       message: errors.length
-        ? "Campaign execution completed with some task errors."
-        : "Campaign content generation completed.",
+        ? "Campaign execution completed with some task errors. Review the failed tasks before publishing."
+        : mediaPending > 0
+          ? `Generated captions for ${generated} tasks, but ${mediaPending} required media asset(s) could not be generated. Review those tasks before publishing.`
+          : "Campaign content generation completed successfully.",
     });
   } catch (error) {
     return NextResponse.json(
