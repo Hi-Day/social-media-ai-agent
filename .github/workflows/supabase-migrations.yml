@@ -27,16 +27,19 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
 
     steps:
-      - name: Check migration configuration
+      - name: Require migration configuration
         id: config
         shell: bash
         run: |
-          if [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_PROJECT_ID" ] && [ -n "$SUPABASE_DB_PASSWORD" ]; then
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Supabase migration secrets are not configured; migration job will be skipped."
+          missing=()
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || missing+=("SUPABASE_ACCESS_TOKEN")
+          [ -n "$SUPABASE_PROJECT_ID" ] || missing+=("SUPABASE_PROJECT_ID")
+          [ -n "$SUPABASE_DB_PASSWORD" ] || missing+=("SUPABASE_DB_PASSWORD")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Production migration configuration is incomplete. Missing required GitHub Actions secrets: ${missing[*]}. No migration was applied."
+            exit 1
           fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
 
       - name: Checkout
         if: steps.config.outputs.configured == 'true'
