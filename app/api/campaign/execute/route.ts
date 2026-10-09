@@ -112,6 +112,7 @@ export async function POST(req: Request) {
 
     let generated = 0;
     let mediaPending = 0;
+    let estimatedCreditsLogged = 0;
     const errors: string[] = [];
 
     for (const task of tasks.slice(0, 25)) {
@@ -172,6 +173,22 @@ export async function POST(req: Request) {
         if (updateError) throw new Error(updateError.message);
 
         generated += 1;
+        const estimatedCredits = Math.max(0, Number(task.estimated_credits) || 0);
+        const usageStatus = generationStatus === "generated" ? "generated" : "media_pending";
+        const { error: usageError } = await supabase.from("campaign_usage_events").insert({
+          workspace_id: workspaceId,
+          campaign_id: campaignId,
+          content_draft_id: task.id,
+          actor_user_id: auth.user.id,
+          model_codename: task.model_codename,
+          estimated_credits: estimatedCredits,
+          result_status: usageStatus,
+        });
+        if (usageError) {
+          errors.push(`${task.id}: Content was generated, but usage metering could not be saved.`);
+        } else {
+          estimatedCreditsLogged += estimatedCredits;
+        }
         if (result.mediaRequired && result.mediaStatus !== "generated") mediaPending += 1;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Generation failed";
@@ -181,6 +198,22 @@ export async function POST(req: Request) {
           .update({ generation_status: "failed", generation_error: message, updated_at: new Date().toISOString() })
           .eq("id", task.id)
           .eq("workspace_id", workspaceId);
+
+        const estimatedCredits = Math.max(0, Number(task.estimated_credits) || 0);
+        const { error: usageError } = await supabase.from("campaign_usage_events").insert({
+          workspace_id: workspaceId,
+          campaign_id: campaignId,
+          content_draft_id: task.id,
+          actor_user_id: auth.user.id,
+          model_codename: task.model_codename,
+          estimated_credits: estimatedCredits,
+          result_status: "failed",
+        });
+        if (usageError) {
+          errors.push(`${task.id}: Failed-attempt usage could not be recorded.`);
+        } else {
+          estimatedCreditsLogged += estimatedCredits;
+        }
       }
     }
 
@@ -197,6 +230,8 @@ export async function POST(req: Request) {
       generated,
       mediaPending,
       remaining,
+      estimatedCreditsLogged,
+      usageNote: "Estimated product credits recorded for each attempted task; this is not the model provider's billed USD cost.",
       errors,
       message: errors.length
         ? "Campaign execution completed with some task errors. Review the failed tasks before publishing."
