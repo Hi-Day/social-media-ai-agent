@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -29,6 +29,7 @@ const navigation = [
   { icon: TrendingUp, name: "Analytics" },
   { icon: Users, name: "Audience" },
   { icon: BrainCircuit, name: "Brand Brain" },
+  { icon: BrainCircuit, name: "Learning Loop" },
   { icon: Settings, name: "Model Registry" },
 ];
 
@@ -37,6 +38,12 @@ type ModelPolicy = {
   default_codename: string;
   enabled_codenames: string[];
 };
+
+type LearningMemory = { id: string; memory_type: string; memory_key: string; content: Record<string, unknown>; approved: boolean; status: string };
+type LearningInsight = { id: string; finding: string; confidence: number | null; insight_type: string; created_at: string; campaign_id: string | null };
+type LearningRecommendation = { id: string; title: string; rationale: string; status: string; priority: string; risk_level: string; campaign_id: string | null; expires_at: string | null };
+type LearningObservation = { id: string; metric_key: string; platform: string; value: number; observed_at: string; source_type: string };
+type CampaignChoice = { id: string; name: string; status: string };
 
 type Draft = {
   id: string;
@@ -108,8 +115,72 @@ export default function Home() {
   const [modelRegistryEditable, setModelRegistryEditable] = useState(false);
   const [modelRegistrySaving, setModelRegistrySaving] = useState(false);
   const [modelRegistrySaved, setModelRegistrySaved] = useState(false);
+  const [learningData, setLearningData] = useState<{ memories: LearningMemory[]; insights: LearningInsight[]; recommendations: LearningRecommendation[]; observations: LearningObservation[] }>({ memories: [], insights: [], recommendations: [], observations: [] });
+  const [learningLoading, setLearningLoading] = useState(false);
+  const [learningBusy, setLearningBusy] = useState(false);
+  const [learningMessage, setLearningMessage] = useState("");
+  const [learningError, setLearningError] = useState("");
+  const [metricPlatform, setMetricPlatform] = useState("instagram");
+  const [metricKey, setMetricKey] = useState("engagement_rate");
+  const [metricValue, setMetricValue] = useState("");
+  const [metricObservedAt, setMetricObservedAt] = useState("");
+  const [memoryKey, setMemoryKey] = useState("");
+  const [memoryContent, setMemoryContent] = useState("");
+  const [learningCampaignId, setLearningCampaignId] = useState("");
+  const [campaignChoices, setCampaignChoices] = useState<CampaignChoice[]>([]);
+  const [canManageLearning, setCanManageLearning] = useState(false);
 
   const router = useRouter();
+
+  async function loadLearning(id = workspaceId) {
+    if (!id) return;
+    setLearningLoading(true);
+    setLearningError("");
+    try {
+      const response = await fetch(`/api/agent/learning?workspaceId=${encodeURIComponent(id)}`, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to load learning data.");
+      setLearningData({ memories: data.memories ?? [], insights: data.insights ?? [], recommendations: data.recommendations ?? [], observations: data.observations ?? [] });
+    } catch (error) {
+      setLearningError(error instanceof Error ? error.message : "Unable to load learning data.");
+    } finally {
+      setLearningLoading(false);
+    }
+  }
+
+  async function runLearningAction(action: string, extra: Record<string, unknown> = {}) {
+    if (!workspaceId) return;
+    setLearningBusy(true); setLearningError(""); setLearningMessage("");
+    try {
+      const response = await fetch("/api/agent/learning", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workspaceId, action, ...extra }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Learning action failed.");
+      setLearningMessage(data.message || "Action completed.");
+      await loadLearning(workspaceId);
+      return data;
+    } catch (error) {
+      setLearningError(error instanceof Error ? error.message : "Learning action failed.");
+      return null;
+    } finally { setLearningBusy(false); }
+  }
+
+  async function saveObservation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!metricObservedAt || metricValue.trim() === "") { setLearningError("Enter a metric value and observation date."); return; }
+    const result = await runLearningAction("observe", { observations: [{ metricKey, platform: metricPlatform, value: Number(metricValue), observedAt: new Date(metricObservedAt).toISOString() }] });
+    if (result) setMetricValue("");
+  }
+
+  async function saveMemory(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (memoryKey.trim().length < 2 || memoryContent.trim().length < 2) { setLearningError("Enter a memory key and content."); return; }
+    const result = await runLearningAction("remember", { memoryType: "semantic", key: memoryKey.trim(), content: { note: memoryContent.trim() } });
+    if (result) { setMemoryKey(""); setMemoryContent(""); }
+  }
+
+  useEffect(() => {
+    if (tab === "Learning Loop" && workspaceId) void loadLearning(workspaceId);
+  }, [tab, workspaceId]);
 
   async function loadDrafts(id = workspaceId) {
     if (!id) return;
@@ -159,6 +230,13 @@ export default function Home() {
 
         if (!mounted) return;
         setWorkspaceId(workspaceData.workspace.id);
+        setCanManageLearning(["owner", "admin"].includes(workspaceData.role));
+        const { data: campaigns } = await supabase.from("campaigns").select("id,name,status").eq("workspace_id", workspaceData.workspace.id).order("created_at", { ascending: false }).limit(50);
+        if (mounted) {
+          const options = (campaigns ?? []) as CampaignChoice[];
+          setCampaignChoices(options);
+          if (options.length) setLearningCampaignId((current) => current || options[0].id);
+        }
         const modelResponse = await fetch(
           `/api/model-registry?workspaceId=${encodeURIComponent(workspaceData.workspace.id)}`,
           { cache: "no-store" },
@@ -791,6 +869,62 @@ export default function Home() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {tab === "Learning Loop" && (
+          <div className="learning-view">
+            <div className="studio-copy">
+              <span className="eyebrow">MEASURE · LEARN · REPLAN</span>
+              <h2>Turn campaign outcomes<br />into better decisions.</h2>
+              <p>Capture observations, inspect evidence-backed findings, and approve recommendations before they influence a campaign plan.</p>
+            </div>
+            {learningError && <div className="learning-message learning-error">{learningError}</div>}
+            {learningMessage && <div className="learning-message">{learningMessage}</div>}
+            <div className="learning-grid">
+              <div className="panel">
+                <div className="panel-head"><div><small>PERFORMANCE DATA</small><h3>Record an observation</h3></div><span className="status">Manual</span></div>
+                <p className="learning-note">Metrics entered here are labelled manual, not platform-verified. For a trend, enter at least two observations in each of the previous and current seven-day windows for the same platform and metric.</p>
+                <form className="learning-form" onSubmit={saveObservation}>
+                  <label>Platform<select value={metricPlatform} onChange={(e) => setMetricPlatform(e.target.value)}><option value="instagram">Instagram</option><option value="facebook">Facebook</option><option value="linkedin">LinkedIn</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="x">X</option><option value="other">Other</option></select></label>
+                  <label>Metric<select value={metricKey} onChange={(e) => setMetricKey(e.target.value)}><option value="engagement_rate">Engagement rate</option><option value="impressions">Impressions</option><option value="reach">Reach</option><option value="likes">Likes</option><option value="comments">Comments</option><option value="shares">Shares</option><option value="saves">Saves</option><option value="clicks">Clicks</option><option value="conversions">Conversions</option></select></label>
+                  <label>Value<input type="number" min="0" step="0.0001" value={metricValue} onChange={(e) => setMetricValue(e.target.value)} required placeholder="e.g. 3.4" /></label>
+                  <label>Observed at<input type="datetime-local" value={metricObservedAt} onChange={(e) => setMetricObservedAt(e.target.value)} required /></label>
+                  <div className="wide"><button className="primary" disabled={learningBusy}>{learningBusy ? "Saving…" : "Save observation"}</button></div>
+                </form>
+                <div className="panel-head" style={{ marginTop: 20 }}><div><small>RECENT OBSERVATIONS</small><h3>{learningData.observations.length} records</h3></div></div>
+                <div className="learning-observation-list">
+                  {learningData.observations.slice(0, 8).map((item) => <div className="learning-observation" key={item.id}><span><b>{item.platform} · {item.metric_key}</b><small>{new Date(item.observed_at).toLocaleString()} · {item.source_type}</small></span><strong>{item.value}</strong></div>)}
+                  {!learningData.observations.length && <p className="learning-note">No observations yet.</p>}
+                </div>
+              </div>
+              <div className="panel">
+                <div className="panel-head"><div><small>PERSISTENT MEMORY</small><h3>Capture a brand or campaign fact</h3></div></div>
+                <p className="learning-note">New memories remain unapproved until an owner/admin validates them. Do not enter secrets or personal data.</p>
+                <form className="learning-form" onSubmit={saveMemory}>
+                  <label className="wide">Memory key<input value={memoryKey} onChange={(e) => setMemoryKey(e.target.value)} maxLength={120} required placeholder="e.g. preferred_cta_style" /></label>
+                  <label className="wide">Memory content<textarea value={memoryContent} onChange={(e) => setMemoryContent(e.target.value)} maxLength={4000} required placeholder="A concise, verifiable preference or lesson" /></label>
+                  <div className="wide"><button className="primary" disabled={learningBusy}>{learningBusy ? "Saving…" : "Save unapproved memory"}</button></div>
+                </form>
+                <div className="panel-head" style={{ marginTop: 20 }}><div><small>ACTIVE MEMORIES</small><h3>{learningData.memories.length} records</h3></div></div>
+                <div className="learning-list">
+                  {learningData.memories.slice(0, 6).map((memory) => <div className="learning-item" key={memory.id}><h4>{memory.memory_key} <span className={memory.approved ? "status approved" : "status needs-review"}>{memory.approved ? "Approved" : "Needs review"}</span></h4><p>{String(memory.content?.note ?? JSON.stringify(memory.content))}</p>{canManageLearning && !memory.approved && <div className="learning-actions"><button onClick={() => void runLearningAction("approve-memory", { memoryId: memory.id })} disabled={learningBusy}>Approve memory</button><button onClick={() => void runLearningAction("archive-memory", { memoryId: memory.id })} disabled={learningBusy}>Archive</button></div>}</div>)}
+                  {!learningData.memories.length && <p className="learning-note">No memories yet.</p>}
+                </div>
+              </div>
+            </div>
+            <div className="panel learning-full">
+              <div className="panel-head"><div><small>PERFORMANCE INTELLIGENCE</small><h3>Insights and recommendations</h3></div><button onClick={() => void loadLearning()} disabled={learningLoading}>{learningLoading ? "Refreshing…" : "Refresh"}</button></div>
+              <div className="learning-form" style={{ marginBottom: 18 }}>
+                <label>Associate analysis with campaign<select value={learningCampaignId} onChange={(e) => setLearningCampaignId(e.target.value)}><option value="">Workspace-wide analysis</option>{campaignChoices.map((campaign) => <option value={campaign.id} key={campaign.id}>{campaign.name} · {campaign.status}</option>)}</select></label>
+                <div style={{ alignSelf: "end" }}><button className="primary" onClick={() => void runLearningAction("analyze", learningCampaignId ? { campaignId: learningCampaignId } : {})} disabled={learningBusy}>{learningBusy ? "Analyzing…" : "Analyze last 14 days"}</button></div>
+              </div>
+              <div className="learning-grid">
+                <div><small>INSIGHTS ({learningData.insights.length})</small><div className="learning-list">{learningData.insights.slice(0, 8).map((insight) => <div className="learning-item" key={insight.id}><h4>{insight.insight_type.replaceAll("_", " ")}</h4><p>{insight.finding}</p><small>Confidence {insight.confidence == null ? "n/a" : Math.round(insight.confidence * 100) + "%"}</small></div>)}{!learningData.insights.length && <p className="learning-note">Insights appear when there is enough comparable data and a meaningful change.</p>}</div></div>
+                <div><small>RECOMMENDATIONS ({learningData.recommendations.length})</small><div className="learning-list">{learningData.recommendations.slice(0, 8).map((rec) => <div className="learning-item" key={rec.id}><h4>{rec.title} <span className="status">{rec.status}</span></h4><p>{rec.rationale}</p><small>Priority: {rec.priority} · Risk: {rec.risk_level}</small>{canManageLearning && rec.status === "proposed" && <div className="learning-actions"><button onClick={() => void runLearningAction("approve-recommendation", { recommendationId: rec.id })} disabled={learningBusy}>Approve</button><button onClick={() => void runLearningAction("reject-recommendation", { recommendationId: rec.id })} disabled={learningBusy}>Reject</button></div>}</div>)}{!learningData.recommendations.length && <p className="learning-note">No recommendations yet.</p>}</div></div>
+              </div>
+              {canManageLearning && <div className="learning-actions"><button className="primary" onClick={() => void runLearningAction("replan", { campaignId: learningCampaignId })} disabled={learningBusy || !learningCampaignId}>Create proposed campaign replan</button><span className="learning-note">Requires an approved, unexpired recommendation linked to the selected campaign. It never publishes or schedules content.</span></div>}
             </div>
           </div>
         )}
