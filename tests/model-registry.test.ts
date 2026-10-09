@@ -25,6 +25,19 @@ describe("model registry", () => {
       { capability: "image", count: 1, codename: "Studio" },
     ])).toBe(6.4);
   });
+
+  it("fails closed rather than estimating unsupported models or invalid quantities as free", () => {
+    expect(() => estimateCredits([
+      { capability: "text", count: 1, codename: "Studio" as never },
+    ])).toThrow("unsupported_model_profile");
+    expect(() => estimateCredits([
+      { capability: "text", count: -1, codename: "Swift" },
+    ])).toThrow("invalid_credit_estimate_count");
+    expect(() => estimateCredits([
+      { capability: "text", count: Number.NaN, codename: "Swift" },
+    ])).toThrow("invalid_credit_estimate_count");
+  });
+
   it("has no duplicate capability/codename registry entries", () => {
     const keys = MODEL_PROFILES.map(p => `${p.capability}:${p.codename}`);
     expect(new Set(keys).size).toBe(keys.length);
