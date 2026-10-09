@@ -1,36 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-
-const migration = (name: string) =>
-  readFileSync(resolve(process.cwd(), "supabase/migrations", name), "utf8");
-
+const migration = (name: string) => readFileSync(resolve(process.cwd(), "supabase/migrations", name), "utf8");
 describe("workflow migration integrity", () => {
-  it("hardens campaign selection transactionally", () => {
-    const sql = migration("009_transactional_workflows.sql");
-    expect(sql).toContain("create or replace function public.select_campaign_package");
-    expect(sql).toContain("for update");
-    expect(sql).toContain("insert into content_drafts");
-    expect(sql).toContain("update campaigns");
-  });
-
-  it("hardens review state transitions transactionally", () => {
-    const sql = migration("009_transactional_workflows.sql");
-    expect(sql).toContain("create or replace function public.review_content_draft");
-    expect(sql).toContain("Only workspace owners and admins can review content.");
-    expect(sql).toContain("update approvals set status");
-    expect(sql).toContain("update content_drafts set status");
-  });
-
-  it("adds the persistent learning loop foundation with tenant isolation", () => {
-    const sql = migration("012_agent_learning_foundation.sql");
-    expect(sql).toContain("create table if not exists public.agent_memories");
-    expect(sql).toContain("create table if not exists public.performance_insights");
-    expect(sql).toContain("create table if not exists public.agent_recommendations");
-    expect(sql).toContain("alter table public.agent_memories enable row level security");
-    expect(sql).toContain("alter table public.performance_insights enable row level security");
-    expect(sql).toContain("alter table public.agent_recommendations enable row level security");
-    expect(sql).toContain("private.is_workspace_member(workspace_id)");
-    expect(sql).toContain("risk_level in ('low','medium','high','critical')");
-  });
+ it("hardens campaign selection transactionally", () => { const sql = migration("20261008001825_009_transactional_workflows.sql"); expect(sql).toContain("create or replace function public.select_campaign_package"); expect(sql).toContain("for update"); expect(sql).toContain("insert into content_drafts"); expect(sql).toContain("update campaigns"); });
+ it("hardens review state transitions transactionally", () => { const sql = migration("20261008001825_009_transactional_workflows.sql"); expect(sql).toContain("create or replace function public.review_content_draft"); expect(sql).toContain("Only workspace owners and admins can review content."); expect(sql).toContain("update approvals set status"); expect(sql).toContain("update content_drafts set status"); });
+ it("adds the persistent learning loop foundation with tenant isolation", () => { const sql = migration("20261009000354_agent_learning_foundation.sql"); expect(sql).toContain("create table if not exists public.agent_memories"); expect(sql).toContain("create table if not exists public.performance_insights"); expect(sql).toContain("create table if not exists public.agent_recommendations"); expect(sql).toContain("alter table public.agent_memories enable row level security"); expect(sql).toContain("alter table public.performance_insights enable row level security"); expect(sql).toContain("alter table public.agent_recommendations enable row level security"); expect(sql).toContain("private.is_workspace_member(workspace_id)"); expect(sql).toContain("risk_level in ('low','medium','high','critical')"); });
 });
