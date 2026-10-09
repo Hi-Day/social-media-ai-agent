@@ -832,6 +832,37 @@ export default function Home() {
           </div>
         )}
 
+        {["Engagement", "Analytics", "Audience"].includes(tab) && (
+          <div className="panel">
+            <div className="panel-head">
+              <div>
+                <small>WORKSPACE MODULE</small>
+                <h3>{tab}</h3>
+              </div>
+              <span className="status">Not connected</span>
+            </div>
+            {tab === "Engagement" && (
+              <div className="empty-inline">
+                Social inbox, comment replies, and moderation actions are not active until a supported social account provider is connected. No messages have been fetched or actions sent.
+              </div>
+            )}
+            {tab === "Analytics" && (
+              <div className="empty-inline">
+                Live reach, engagement, and conversion metrics are not connected yet. We will not display fabricated numbers; connect a platform data source before using this dashboard for decisions.
+              </div>
+            )}
+            {tab === "Audience" && (
+              <div className="empty-inline">
+                Audience demographics and behavior insights require authorized platform data and sufficient history. This module is waiting for that connection.
+              </div>
+            )}
+            <div className="brand-form-foot">
+              <span>Module availability is shown explicitly to avoid implying a live integration.</span>
+              <button onClick={() => openTab("Overview")}>Back to Overview</button>
+            </div>
+          </div>
+        )}
+
         {tab === "Content Calendar" && (
           <div className="calendar-view">
             <div className="panel">
