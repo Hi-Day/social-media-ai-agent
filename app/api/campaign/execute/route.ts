@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { executeCampaignTask } from "@/lib/campaign-agent";
 import type { BrandContext } from "@/lib/agent";
+import { canExecuteCampaign } from "@/lib/campaign-permissions";
 
 export async function POST(req: Request) {
   try {
@@ -19,14 +20,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "workspaceId and campaignId are required." }, { status: 400 });
     }
 
-    const { data: membership } = await supabase
+    const { data: membership, error: membershipError } = await supabase
       .from("workspace_members")
       .select("role")
       .eq("workspace_id", workspaceId)
       .eq("user_id", auth.user.id)
       .maybeSingle();
 
+    if (membershipError) {
+      return NextResponse.json({ error: "Unable to verify workspace permissions." }, { status: 500 });
+    }
     if (!membership) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!canExecuteCampaign(membership.role)) {
+      return NextResponse.json(
+        { error: "Only workspace owners and admins can execute campaigns because execution may incur model costs." },
+        { status: 403 },
+      );
+    }
 
     const { data: campaign, error: campaignError } = await supabase
       .from("campaigns")
@@ -84,11 +94,22 @@ export async function POST(req: Request) {
     const errors: string[] = [];
 
     for (const task of tasks.slice(0, 25)) {
-      await supabase
+      // Atomically claim only tasks that are still pending/failed. Concurrent
+      // requests must not generate the same asset or spend credits twice.
+      const { data: claimedTask, error: claimError } = await supabase
         .from("content_drafts")
         .update({ generation_status: "generating", generation_error: null })
         .eq("id", task.id)
-        .eq("workspace_id", workspaceId);
+        .eq("workspace_id", workspaceId)
+        .in("generation_status", ["pending", "failed"])
+        .select("id")
+        .maybeSingle();
+
+      if (claimError) {
+        errors.push(`${task.id}: Unable to claim task for execution.`);
+        continue;
+      }
+      if (!claimedTask) continue;
 
       try {
         const result = await executeCampaignTask(task, {
@@ -107,7 +128,11 @@ export async function POST(req: Request) {
             caption: result.caption,
             status: "draft",
             generation_status: generationStatus,
-            generation_error: null,
+            generation_error: result.mediaRequired && result.mediaStatus !== "generated"
+              ? result.mediaStatus === "provider_unavailable"
+                ? "Caption generated, but the required media asset could not be generated because its provider is unavailable."
+                : "Required media asset was not generated. Review this task before publishing."
+              : null,
             generated_at: new Date().toISOString(),
             media_status: result.mediaRequired ? result.mediaStatus : "not_required",
             media_url: result.mediaUrl ?? null,
@@ -152,8 +177,10 @@ export async function POST(req: Request) {
       remaining,
       errors,
       message: errors.length
-        ? "Campaign execution completed with some task errors."
-        : "Campaign content generation completed.",
+        ? "Campaign execution completed with some task errors. Review the failed tasks before publishing."
+        : mediaPending > 0
+          ? `Generated captions for ${generated} tasks, but ${mediaPending} required media asset(s) could not be generated. Review those tasks before publishing.`
+          : "Campaign content generation completed successfully.",
     });
   } catch (error) {
     return NextResponse.json(
