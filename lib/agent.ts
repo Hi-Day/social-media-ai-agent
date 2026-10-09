@@ -29,7 +29,7 @@ export type ProviderUsage = {
   completionTokens: number | null;
   totalTokens: number | null;
   providerCostUsd: number | null;
-  costSource: "provider_reported" | "not_available" | "demo";
+  costSource: "provider_reported" | "partial" | "not_available" | "demo";
 };
 
 export async function generateCaptionWithUsage(
