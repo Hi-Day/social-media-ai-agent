@@ -19,7 +19,9 @@ import {
   Check,
   X,
   CreditCard,
+  Link2,
 } from "lucide-react";
+import LinkedInIntegration from "@/app/components/linkedin-integration";
 
 const navigation = [
   { icon: LayoutDashboard, name: "Overview" },
@@ -33,6 +35,7 @@ const navigation = [
   { icon: BrainCircuit, name: "Learning Loop" },
   { icon: Settings, name: "Model Registry" },
   { icon: CreditCard, name: "Usage & Costs" },
+  { icon: Link2, name: "Social Accounts" },
 ];
 
 type ModelPolicy = {
@@ -954,6 +957,8 @@ export default function Home() {
             </div>
           </div>
         )}
+
+        {tab === "Social Accounts" && <LinkedInIntegration workspaceId={workspaceId} />}
 
         {tab === "Content Calendar" && (
           <div className="calendar-view">
