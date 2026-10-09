@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
   let query = supabase
     .from("campaign_usage_events")
-    .select("campaign_id,content_draft_id,model_codename,estimated_credits,result_status,created_at")
+    .select("campaign_id,content_draft_id,model_codename,estimated_credits,result_status,prompt_tokens,completion_tokens,total_tokens,provider_cost_usd,cost_source,created_at")
     .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false })
     .limit(500);
@@ -51,11 +51,29 @@ export async function GET(request: Request) {
     },
     { generated: 0, media_pending: 0, failed: 0 },
   );
-  const byModel = rows.reduce<Record<string, { events: number; estimatedCredits: number }>>((summary, event) => {
+  const costSummary = rows.reduce((summary, event) => {
+    const source = event.cost_source as "provider_reported" | "partial" | "not_available" | "demo";
+    if (source === "provider_reported") summary.providerReportedEvents += 1;
+    else if (source === "partial") summary.partialCostEvents += 1;
+    else if (source === "demo") summary.demoEvents += 1;
+    else summary.costUnknownEvents += 1;
+    if (event.provider_cost_usd !== null && event.provider_cost_usd !== undefined) {
+      summary.knownProviderCostUsd += Number(event.provider_cost_usd);
+    }
+    if (event.total_tokens !== null && event.total_tokens !== undefined) {
+      summary.totalKnownTokens += Number(event.total_tokens);
+    }
+    return summary;
+  }, { knownProviderCostUsd: 0, totalKnownTokens: 0, providerReportedEvents: 0, partialCostEvents: 0, costUnknownEvents: 0, demoEvents: 0 });
+  const byModel = rows.reduce<Record<string, { events: number; estimatedCredits: number; knownProviderCostUsd: number; providerCostEvents: number }>>((summary, event) => {
     const key = event.model_codename || "Automatic";
-    const item = summary[key] ?? { events: 0, estimatedCredits: 0 };
+    const item = summary[key] ?? { events: 0, estimatedCredits: 0, knownProviderCostUsd: 0, providerCostEvents: 0 };
     item.events += 1;
     item.estimatedCredits += Number(event.estimated_credits || 0);
+    if (event.provider_cost_usd !== null && event.provider_cost_usd !== undefined) {
+      item.knownProviderCostUsd += Number(event.provider_cost_usd);
+      item.providerCostEvents += 1;
+    }
     summary[key] = item;
     return summary;
   }, {});
@@ -69,8 +87,14 @@ export async function GET(request: Request) {
       recordedAttempts: rows.length,
       totalEstimatedCredits: Number(totalEstimatedCredits.toFixed(4)),
       ...counts,
+      knownProviderCostUsd: Number(costSummary.knownProviderCostUsd.toFixed(8)),
+      totalKnownTokens: costSummary.totalKnownTokens,
+      providerReportedEvents: costSummary.providerReportedEvents,
+      partialCostEvents: costSummary.partialCostEvents,
+      costUnknownEvents: costSummary.costUnknownEvents,
+      demoEvents: costSummary.demoEvents,
       byModel,
     },
-    note: "This is an estimate of product credits for the latest 500 attempts, not provider-billed USD cost. Older attempts may be omitted when the limit is reached.",
+    note: "Provider USD cost is shown only when reported by the gateway. Partial events contain a known subtotal, not a full task cost; unknown costs are not treated as zero. Product credits are separate estimates. Only the latest 500 attempts are included.",
   });
 }

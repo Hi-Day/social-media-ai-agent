@@ -24,13 +24,26 @@ function resolveModel(codename?: string) {
   return configured || process.env.OPENROUTER_MODEL || "deepseek/deepseek-chat-v3.1";
 }
 
-export async function generateCaption(
+export type ProviderUsage = {
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+  providerCostUsd: number | null;
+  costSource: "provider_reported" | "partial" | "not_available" | "demo";
+};
+
+export async function generateCaptionWithUsage(
   idea: string,
   brand: BrandContext = {},
   options: GenerationOptions = {},
-) {
+): Promise<{ caption: string; usage: ProviderUsage }> {
   const key = process.env.OPENROUTER_API_KEY;
-  if (!key) return demo(idea, brand);
+  if (!key) {
+    return {
+      caption: demo(idea, brand),
+      usage: { promptTokens: null, completionTokens: null, totalTokens: null, providerCostUsd: null, costSource: "demo" },
+    };
+  }
 
   const model = resolveModel(options.codename);
   const brandContext = [
@@ -44,8 +57,8 @@ export async function generateCaption(
     brand.forbidden_topics && "Forbidden topics: " + brand.forbidden_topics,
     brand.hashtag_strategy && "Hashtag strategy: " + brand.hashtag_strategy,
     brand.platform_guidance && "Platform guidance: " + brand.platform_guidance,
-    brand.example_posts && "Reference examples (imitate principles, not facts):\n" + brand.example_posts,
-  ].filter(Boolean).join("\n");
+    brand.example_posts && "Reference examples (imitate principles, not facts):\\n" + brand.example_posts,
+  ].filter(Boolean).join("\\n");
 
   const body = {
     model,
@@ -57,14 +70,14 @@ export async function generateCaption(
       {
         role: "user",
         content: brandContext
-          ? "BRAND CONTEXT:\n" + brandContext + "\n\nPLATFORM: " + (options.platform || "Multi-platform") + "\nCONTENT FORMAT: " + (options.contentType || "Social content") + "\nCONTENT REQUEST:\n" + idea
-          : "PLATFORM: " + (options.platform || "Multi-platform") + "\nCONTENT FORMAT: " + (options.contentType || "Social content") + "\nCONTENT REQUEST:\n" + idea,
+          ? "BRAND CONTEXT:\\n" + brandContext + "\\n\\nPLATFORM: " + (options.platform || "Multi-platform") + "\\nCONTENT FORMAT: " + (options.contentType || "Social content") + "\\nCONTENT REQUEST:\\n" + idea
+          : "PLATFORM: " + (options.platform || "Multi-platform") + "\\nCONTENT FORMAT: " + (options.contentType || "Social content") + "\\nCONTENT REQUEST:\\n" + idea,
       },
     ],
     temperature: 0.7,
   };
 
-  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -75,9 +88,32 @@ export async function generateCaption(
     body: JSON.stringify(body),
   });
 
-  if (!r.ok) throw new Error("LLM gateway error");
-  const d = await r.json();
-  return d.choices?.[0]?.message?.content || demo(idea, brand);
+  if (!response.ok) throw new Error("LLM gateway error");
+  const data = await response.json();
+  const usage = data?.usage ?? {};
+  const numeric = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+  const promptTokens = numeric(usage.prompt_tokens);
+  const completionTokens = numeric(usage.completion_tokens);
+  const totalTokens = numeric(usage.total_tokens);
+  const providerCostUsd = numeric(usage.cost);
+  return {
+    caption: data.choices?.[0]?.message?.content || demo(idea, brand),
+    usage: {
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      providerCostUsd,
+      costSource: providerCostUsd !== null ? "provider_reported" : "not_available",
+    },
+  };
+}
+
+export async function generateCaption(
+  idea: string,
+  brand: BrandContext = {},
+  options: GenerationOptions = {},
+) {
+  return (await generateCaptionWithUsage(idea, brand, options)).caption;
 }
 
 function demo(idea: string, brand: BrandContext) {

@@ -183,6 +183,11 @@ export async function POST(req: Request) {
           model_codename: task.model_codename,
           estimated_credits: estimatedCredits,
           result_status: usageStatus,
+          prompt_tokens: result.usage.promptTokens,
+          completion_tokens: result.usage.completionTokens,
+          total_tokens: result.usage.totalTokens,
+          provider_cost_usd: result.usage.providerCostUsd,
+          cost_source: result.usage.costSource,
         });
         if (usageError) {
           errors.push(`${task.id}: Content was generated, but usage metering could not be saved.`);
@@ -208,6 +213,11 @@ export async function POST(req: Request) {
           model_codename: task.model_codename,
           estimated_credits: estimatedCredits,
           result_status: "failed",
+          prompt_tokens: null,
+          completion_tokens: null,
+          total_tokens: null,
+          provider_cost_usd: null,
+          cost_source: "not_available",
         });
         if (usageError) {
           errors.push(`${task.id}: Failed-attempt usage could not be recorded.`);
