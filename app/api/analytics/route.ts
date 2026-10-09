@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { summarizeObservations } from "@/lib/analytics-summary";
+import { summarizeAnalyticsDataQuality } from "@/lib/analytics-data-quality";
 
 const ALLOWED_RANGES = new Set([7, 30, 90]);
 
@@ -48,11 +49,6 @@ export async function GET(request: Request) {
     summary: summarizeObservations(observations),
     observations,
     insights: insightsResult.data ?? [],
-    dataQuality: {
-      liveProviderAnalyticsConnected: observations.some((row) => row.source_type === "provider"),
-      manualObservationCount: observations.filter((row) => row.source_type === "manual").length,
-      systemObservationCount: observations.filter((row) => row.source_type === "system").length,
-      note: "Analytics only reflects recorded observations in this workspace. Manual observations are not live platform metrics; provider coverage depends on supported permissions and ingestion.",
-    },
+    dataQuality: summarizeAnalyticsDataQuality(observations),
   });
 }
