@@ -34,6 +34,6 @@ $$;
 
 drop trigger if exists trg_campaign_media_readiness on public.content_drafts;
 create trigger trg_campaign_media_readiness
-before insert or update of status, media_status, content_type, campaign_id, generation_status
+before insert or update
 on public.content_drafts
 for each row execute function public.enforce_campaign_media_readiness();
