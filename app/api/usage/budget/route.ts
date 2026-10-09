@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { evaluateBudgetHealth } from "@/lib/commercial-controls";
 
 async function getUserAndRole(supabase: Awaited<ReturnType<typeof createClient>>, workspaceId: string) {
   const { data: auth, error: authError } = await supabase.auth.getUser();
@@ -29,7 +30,14 @@ export async function GET(request: Request) {
   const { data, error } = await supabase.rpc("get_workspace_usage_budget", { p_workspace_id: workspaceId });
   if (error) return NextResponse.json({ error: "Unable to load budget status. Confirm the workspace budget migration has been applied." }, { status: 500 });
   const budget = Array.isArray(data) ? data[0] : data;
-  return NextResponse.json({ workspaceId, budget: budget ?? null, editable: ["owner", "admin"].includes(context.role ?? "") });
+  const health = budget ? evaluateBudgetHealth({
+    monthlyLimit: budget.monthly_credit_limit == null ? null : Number(budget.monthly_credit_limit),
+    usedCredits: Number(budget.used_credits ?? 0),
+    reservedCredits: Number(budget.reserved_credits ?? 0),
+    hardLimit: Boolean(budget.hard_limit),
+    configured: Boolean(budget.budget_configured),
+  }) : evaluateBudgetHealth({ monthlyLimit: null, usedCredits: 0, reservedCredits: 0, hardLimit: false, configured: false });
+  return NextResponse.json({ workspaceId, budget: budget ?? null, health, editable: ["owner", "admin"].includes(context.role ?? "") });
 }
 
 export async function PUT(request: Request) {
