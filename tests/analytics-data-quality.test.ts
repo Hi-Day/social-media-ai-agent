@@ -21,9 +21,10 @@ describe("analytics data provenance", () => {
   });
 
   it("reports provider analytics as unobserved when there are no provider rows", () => {
-    expect(summarizeAnalyticsDataQuality([
+    const result = summarizeAnalyticsDataQuality([
       { source_type: "manual", observed_at: "not-a-date" },
-    })).toMatchObject({
+    ]);
+    expect(result).toMatchObject({
       providerAnalyticsObservedInRange: false,
       providerObservationCount: 0,
       latestProviderObservationAt: null,
