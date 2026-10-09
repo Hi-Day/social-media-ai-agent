@@ -172,3 +172,51 @@ $$;
 
 revoke all on function public.finalize_campaign_usage_reservation(uuid,text) from public, anon;
 grant execute on function public.finalize_campaign_usage_reservation(uuid,text) to authenticated;
+
+
+create or replace function public.get_workspace_usage_budget(
+  p_workspace_id uuid
+) returns table (
+  budget_configured boolean,
+  monthly_credit_limit numeric,
+  hard_limit boolean,
+  used_credits numeric,
+  reserved_credits numeric,
+  remaining_credits numeric
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user_id uuid := (select auth.uid());
+  v_limit numeric;
+  v_hard_limit boolean;
+  v_used numeric := 0;
+  v_reserved numeric := 0;
+  v_month_start timestamptz := date_trunc('month', now() at time zone 'UTC') at time zone 'UTC';
+begin
+  if v_user_id is null then raise exception 'not_authenticated'; end if;
+  if not exists (
+    select 1 from public.workspace_members wm
+    where wm.workspace_id = p_workspace_id and wm.user_id = v_user_id
+  ) then raise exception 'workspace_forbidden'; end if;
+
+  select b.monthly_credit_limit, b.hard_limit into v_limit, v_hard_limit
+  from public.workspace_usage_budgets b where b.workspace_id = p_workspace_id;
+
+  select coalesce(sum(e.estimated_credits), 0) into v_used
+  from public.campaign_usage_events e
+  where e.workspace_id = p_workspace_id and e.created_at >= v_month_start;
+
+  select coalesce(sum(r.reserved_credits), 0) into v_reserved
+  from public.campaign_usage_reservations r
+  where r.workspace_id = p_workspace_id and r.status = 'active' and r.expires_at > now();
+
+  return query select v_limit is not null, v_limit, coalesce(v_hard_limit, true), v_used, v_reserved,
+    case when v_limit is null then null::numeric else greatest(0, v_limit - v_used - v_reserved) end;
+end;
+$$;
+
+revoke all on function public.get_workspace_usage_budget(uuid) from public, anon;
+grant execute on function public.get_workspace_usage_budget(uuid) to authenticated;
