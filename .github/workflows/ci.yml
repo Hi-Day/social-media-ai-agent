@@ -15,3 +15,5 @@ jobs:
       - run: npm run typecheck
       - run: npm test -- --reporter=verbose
       - run: npm run build
+      - name: Smoke test production server and security headers
+        run: bash scripts/smoke-test.sh
