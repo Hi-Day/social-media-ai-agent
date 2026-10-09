@@ -18,6 +18,7 @@ import {
   BrainCircuit,
   Check,
   X,
+  CreditCard,
 } from "lucide-react";
 
 const navigation = [
@@ -31,6 +32,7 @@ const navigation = [
   { icon: BrainCircuit, name: "Brand Brain" },
   { icon: BrainCircuit, name: "Learning Loop" },
   { icon: Settings, name: "Model Registry" },
+  { icon: CreditCard, name: "Usage & Costs" },
 ];
 
 type ModelPolicy = {
@@ -44,6 +46,19 @@ type LearningInsight = { id: string; finding: string; confidence: number | null;
 type LearningRecommendation = { id: string; title: string; rationale: string; status: string; priority: string; risk_level: string; campaign_id: string | null; expires_at: string | null };
 type LearningObservation = { id: string; metric_key: string; platform: string; value: number; observed_at: string; source_type: string };
 type CampaignChoice = { id: string; name: string; status: string };
+type UsageData = {
+  limit: number;
+  note: string;
+  summary: {
+    recordedAttempts: number;
+    totalEstimatedCredits: number;
+    generated: number;
+    media_pending: number;
+    failed: number;
+    byModel: Record<string, { events: number; estimatedCredits: number }>;
+  };
+  events: Array<{ campaign_id: string; content_draft_id: string; model_codename: string | null; estimated_credits: number; result_status: string; created_at: string }>;
+};
 
 type Draft = {
   id: string;
@@ -129,6 +144,9 @@ export default function Home() {
   const [learningCampaignId, setLearningCampaignId] = useState("");
   const [campaignChoices, setCampaignChoices] = useState<CampaignChoice[]>([]);
   const [canManageLearning, setCanManageLearning] = useState(false);
+  const [usageData, setUsageData] = useState<UsageData | null>(null);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageError, setUsageError] = useState("");
 
   const router = useRouter();
 
@@ -180,6 +198,7 @@ export default function Home() {
 
   useEffect(() => {
     if (tab === "Learning Loop" && workspaceId) void loadLearning(workspaceId);
+    if (tab === "Usage & Costs" && workspaceId) void loadUsage(workspaceId);
   }, [tab, workspaceId]);
 
   async function loadDrafts(id = workspaceId) {
@@ -190,6 +209,22 @@ export default function Home() {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Unable to load drafts.");
     setDrafts(data.drafts ?? []);
+  }
+
+  async function loadUsage(id = workspaceId) {
+    if (!id) return;
+    setUsageLoading(true);
+    setUsageError("");
+    try {
+      const response = await fetch(`/api/usage?workspaceId=${encodeURIComponent(id)}`, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to load usage history.");
+      setUsageData(data as UsageData);
+    } catch (error) {
+      setUsageError(error instanceof Error ? error.message : "Unable to load usage history.");
+    } finally {
+      setUsageLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -970,6 +1005,54 @@ export default function Home() {
                 <div><small>RECOMMENDATIONS ({learningData.recommendations.length})</small><div className="learning-list">{learningData.recommendations.slice(0, 8).map((rec) => <div className="learning-item" key={rec.id}><h4>{rec.title} <span className="status">{rec.status}</span></h4><p>{rec.rationale}</p><small>Priority: {rec.priority} · Risk: {rec.risk_level}</small>{canManageLearning && rec.status === "proposed" && <div className="learning-actions"><button onClick={() => void runLearningAction("approve-recommendation", { recommendationId: rec.id })} disabled={learningBusy}>Approve</button><button onClick={() => void runLearningAction("reject-recommendation", { recommendationId: rec.id })} disabled={learningBusy}>Reject</button></div>}</div>)}{!learningData.recommendations.length && <p className="learning-note">No recommendations yet.</p>}</div></div>
               </div>
               {canManageLearning && <div className="learning-actions"><button className="primary" onClick={() => void runLearningAction("replan", { campaignId: learningCampaignId })} disabled={learningBusy || !learningCampaignId}>Create proposed campaign replan</button><span className="learning-note">Requires an approved, unexpired recommendation linked to the selected campaign. It never publishes or schedules content.</span></div>}
+            </div>
+          </div>
+        )}
+
+        {tab === "Usage & Costs" && (
+          <div className="learning-view">
+            <div className="studio-copy">
+              <span className="eyebrow">USAGE · ESTIMATES · CONTROL</span>
+              <h2>Know what your AI<br />workflows consume.</h2>
+              <p>Track product credits used by campaign generation, with results grouped by model tier and task outcome.</p>
+            </div>
+            {usageError && <div className="learning-message learning-error" role="alert">{usageError}</div>}
+            <div className="learning-grid">
+              <div className="panel">
+                <small>ESTIMATED PRODUCT CREDITS</small>
+                <h3>{usageLoading && !usageData ? "Loading…" : usageData ? usageData.summary.totalEstimatedCredits.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "—"}</h3>
+                <p>Credits recorded across the latest {usageData?.limit ?? 500} attempts.</p>
+              </div>
+              <div className="panel">
+                <small>GENERATED</small>
+                <h3>{usageData?.summary.generated ?? "—"}</h3>
+                <p>Attempts completed successfully.</p>
+              </div>
+              <div className="panel">
+                <small>MEDIA PENDING</small>
+                <h3>{usageData?.summary.media_pending ?? "—"}</h3>
+                <p>Content needs a required media asset.</p>
+              </div>
+              <div className="panel">
+                <small>FAILED</small>
+                <h3>{usageData?.summary.failed ?? "—"}</h3>
+                <p>Attempts that ended in failure.</p>
+              </div>
+            </div>
+            <div className="panel" style={{ marginTop: 16 }}>
+              <div className="model-registry-head">
+                <div><small>BREAKDOWN</small><h3>Usage by model tier</h3></div>
+                <button onClick={() => void loadUsage()} disabled={usageLoading}>{usageLoading ? "Refreshing…" : "Refresh"}</button>
+              </div>
+              {!usageData && !usageLoading && !usageError && <p>Usage history will appear after a campaign task is attempted.</p>}
+              {usageData && Object.keys(usageData.summary.byModel).length === 0 && <p>No campaign usage has been recorded for this workspace yet.</p>}
+              {usageData && Object.entries(usageData.summary.byModel).map(([model, summary]) => (
+                <div className="model-policy-row" key={model}>
+                  <div><b>{model}</b><small>{summary.events} recorded attempts</small></div>
+                  <strong>{summary.estimatedCredits.toLocaleString(undefined, { maximumFractionDigits: 4 })} credits</strong>
+                </div>
+              ))}
+              <p className="learning-note">{usageData?.note ?? "Values are estimates of product credits, not actual model-provider invoice costs. Provider billing reconciliation is not yet implemented."}</p>
             </div>
           </div>
         )}
