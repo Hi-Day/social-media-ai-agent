@@ -34,10 +34,14 @@ if [ "$ready" != true ]; then
   exit 1
 fi
 
+# Verify the public authentication entry point is served by the production build.
+curl --silent --show-error --fail --max-time 5 "http://127.0.0.1:$port/login" -o /tmp/socialos-login.html
+grep -qi "<html" /tmp/socialos-login.html
+
 curl --silent --show-error --fail --head "http://127.0.0.1:$port/" >"$headers_file"
 grep -iq '^x-content-type-options: nosniff' "$headers_file"
 grep -iq '^x-frame-options: DENY' "$headers_file"
 grep -iq "^referrer-policy: strict-origin-when-cross-origin" "$headers_file"
 grep -iq "^content-security-policy: frame-ancestors 'none'; object-src 'none'; base-uri 'self'" "$headers_file"
 
-echo "Production server smoke test passed: homepage responds and baseline security headers are present."
+echo "Production server smoke test passed: homepage and login route respond; baseline security headers are present."
