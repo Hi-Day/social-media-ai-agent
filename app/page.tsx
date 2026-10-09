@@ -65,6 +65,15 @@ type UsageData = {
   };
   events: Array<{ campaign_id: string; content_draft_id: string; model_codename: string | null; estimated_credits: number; result_status: string; provider_cost_usd: number | null; cost_source: string; total_tokens: number | null; created_at: string }>;
 };
+type UsageBudgetData = {
+  budget_configured: boolean;
+  monthly_credit_limit: number | null;
+  hard_limit: boolean;
+  used_credits: number;
+  reserved_credits: number;
+  remaining_credits: number | null;
+  editable: boolean;
+};
 
 type Draft = {
   id: string;
@@ -153,6 +162,12 @@ export default function Home() {
   const [usageData, setUsageData] = useState<UsageData | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageError, setUsageError] = useState("");
+  const [usageBudget, setUsageBudget] = useState<UsageBudgetData | null>(null);
+  const [budgetLimitInput, setBudgetLimitInput] = useState("");
+  const [budgetHardLimitInput, setBudgetHardLimitInput] = useState(true);
+  const [budgetSaving, setBudgetSaving] = useState(false);
+  const [budgetMessage, setBudgetMessage] = useState("");
+  const [budgetError, setBudgetError] = useState("");
 
   const router = useRouter();
 
@@ -230,6 +245,42 @@ export default function Home() {
       setUsageError(error instanceof Error ? error.message : "Unable to load usage history.");
     } finally {
       setUsageLoading(false);
+    }
+
+    try {
+      const response = await fetch(`/api/usage/budget?workspaceId=${encodeURIComponent(id)}`, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to load budget settings.");
+      const budget = data.budget as UsageBudgetData | null;
+      setUsageBudget(budget);
+      if (budget?.monthly_credit_limit != null) setBudgetLimitInput(String(budget.monthly_credit_limit));
+      setBudgetHardLimitInput(budget?.hard_limit ?? true);
+      setBudgetError("");
+    } catch (error) {
+      setBudgetError(error instanceof Error ? error.message : "Unable to load budget settings.");
+    }
+  }
+
+  async function saveUsageBudget(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!workspaceId || !budgetLimitInput.trim()) return;
+    setBudgetSaving(true);
+    setBudgetMessage("");
+    setBudgetError("");
+    try {
+      const response = await fetch("/api/usage/budget", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ workspaceId, monthlyCreditLimit: Number(budgetLimitInput), hardLimit: budgetHardLimitInput }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to save budget.");
+      setBudgetMessage("Monthly credit budget saved.");
+      await loadUsage(workspaceId);
+    } catch (error) {
+      setBudgetError(error instanceof Error ? error.message : "Unable to save budget.");
+    } finally {
+      setBudgetSaving(false);
     }
   }
 
@@ -1077,6 +1128,33 @@ export default function Home() {
                 </div>
               ))}
               <p className="learning-note">{usageData?.note ?? "Values are estimates of product credits, not actual model-provider invoice costs. Provider billing reconciliation is not yet implemented."}</p>
+            </div>
+            <div className="panel" style={{ marginTop: 16 }}>
+              <small>SPENDING CONTROL</small>
+              <h3>Monthly workspace budget</h3>
+              {budgetError && <div className="learning-message learning-error" role="alert">{budgetError}</div>}
+              {budgetMessage && <div className="learning-message" role="status">{budgetMessage}</div>}
+              {usageBudget?.budget_configured ? (
+                <p>
+                  Current month: {usageBudget.used_credits.toLocaleString(undefined, { maximumFractionDigits: 4 })} used
+                  {usageBudget.reserved_credits > 0 ? ` · ${usageBudget.reserved_credits.toLocaleString(undefined, { maximumFractionDigits: 4 })} reserved` : ""}
+                  {" · "}Limit: {usageBudget.monthly_credit_limit?.toLocaleString(undefined, { maximumFractionDigits: 4 })} credits
+                  {usageBudget.remaining_credits !== null ? ` · ${usageBudget.remaining_credits.toLocaleString(undefined, { maximumFractionDigits: 4 })} available` : ""}
+                </p>
+              ) : <p>No monthly credit budget is configured. Campaigns are not blocked by a workspace credit limit.</p>}
+              {usageBudget?.editable && (
+                <form onSubmit={saveUsageBudget} className="learning-form">
+                  <label>Monthly credit limit
+                    <input type="number" min="0.0001" max="1000000000" step="0.1" required value={budgetLimitInput} onChange={(e) => setBudgetLimitInput(e.target.value)} placeholder="e.g. 500" />
+                  </label>
+                  <label className="learning-checkbox">
+                    <input type="checkbox" checked={budgetHardLimitInput} onChange={(e) => setBudgetHardLimitInput(e.target.checked)} />
+                    Block campaign execution when the budget would be exceeded
+                  </label>
+                  <button className="primary" type="submit" disabled={budgetSaving || !budgetLimitInput.trim()}>{budgetSaving ? "Saving…" : "Save monthly budget"}</button>
+                </form>
+              )}
+              <p className="learning-note">Budget limits are measured in estimated product credits, not USD. A hard limit reserves credits before execution to reduce overspending from concurrent requests. Active reservations expire automatically after 30 minutes if an execution is interrupted.</p>
             </div>
           </div>
         )}
