@@ -53,11 +53,23 @@ class OpenRouterImageProvider implements ImageProvider {
       data?.choices?.[0]?.message?.content?.match(/https?:\/\/[^\s)]+/)?.[0];
 
     if (!url) throw new Error("IMAGE_PROVIDER_NO_ASSET");
+    const usage = data?.usage ?? {};
+    const numeric = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+    const providerCostUsd = numeric(usage.cost);
     return {
       url,
       provider: "openrouter",
       modelCodename: request.modelCodename,
-      metadata: { response_id: data.id },
+      metadata: {
+        response_id: data.id,
+        usage: {
+          promptTokens: numeric(usage.prompt_tokens),
+          completionTokens: numeric(usage.completion_tokens),
+          totalTokens: numeric(usage.total_tokens),
+          providerCostUsd,
+          costSource: providerCostUsd !== null ? "provider_reported" : "not_available",
+        },
+      },
     };
   }
 }
