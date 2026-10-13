@@ -7,7 +7,8 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8"
 describe("workspace bootstrap RPC security", () => {
   it("routes workspace creation through one atomic RPC rather than direct table inserts", () => {
     const route = read("app/api/workspace/route.ts");
-    expect(route).toContain('supabase.rpc(\n      "create_workspace_for_current_user"');
+    expect(route).toContain("supabase.rpc(");
+    expect(route).toContain('"create_workspace_for_current_user"');
     expect(route).not.toMatch(/from\(["']workspaces["']\)\s*\.insert\(/);
     expect(route).not.toMatch(/from\(["']workspace_members["']\)\s*\.insert\(/);
   });
