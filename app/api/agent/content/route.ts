@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateCaption } from "@/lib/agent";
+import { enforceWorkspaceSubscription } from "@/lib/billing-entitlements";
 
 export async function POST(req: Request) {
   try {
@@ -30,6 +31,9 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (!membership) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const subscriptionGate = await enforceWorkspaceSubscription(supabase, workspaceId);
+    if (subscriptionGate) return subscriptionGate;
 
     let { data: brand, error: brandError } = await supabase
       .from("brands")
