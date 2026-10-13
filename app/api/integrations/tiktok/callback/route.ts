@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
   const { data: auth, error: authError } = await supabase.auth.getUser();
-  if (authError || !auth.user) return fail(url.origin, "session_expired");
+  if (authError || !auth.user) return fail(url.origin, "tiktok_session_expired");
   const cookieStore = await cookies();
   const expectedState = cookieStore.get("tiktok_oauth_state")?.value;
   const workspaceId = cookieStore.get("tiktok_oauth_workspace")?.value;
