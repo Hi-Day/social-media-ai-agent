@@ -21,7 +21,8 @@ import {
   CreditCard,
   Link2,
 } from "lucide-react";
-import LinkedInIntegration from "@/app/components/linkedin-integration";
+import SocialAccountsPanel from "@/app/components/social-accounts-panel";
+import QuickStartGuide from "@/app/components/quick-start-guide";
 
 const navigation = [
   { icon: LayoutDashboard, name: "Overview" },
@@ -93,13 +94,6 @@ type Draft = {
   media_url?: string | null;
 };
 
-const stats = [
-  ["Content this week", "—", "Live workspace"],
-  ["Engagement rate", "—", "Connect accounts"],
-  ["Pending approvals", "—", "Live workspace"],
-  ["AI actions", "—", "This week"],
-];
-
 function statusLabel(status: string) {
   return status.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -120,6 +114,7 @@ export default function Home() {
   const [campaignExecutionLoading, setCampaignExecutionLoading] = useState(false);
   const [campaignExecutionMessage, setCampaignExecutionMessage] = useState("");
   const [generated, setGenerated] = useState("");
+  const [generationMode, setGenerationMode] = useState<"live" | "demo" | "">("");
   const [draftId, setDraftId] = useState("");
   const [draftStatus, setDraftStatus] = useState("draft");
   const [drafts, setDrafts] = useState<Draft[]>([]);
@@ -173,6 +168,21 @@ export default function Home() {
   const [budgetError, setBudgetError] = useState("");
 
   const router = useRouter();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const integration = params.get("integration") || "";
+    const integrationError = params.get("integration_error") || "";
+    if (
+      integration.endsWith("_connected") ||
+      integrationError.startsWith("instagram_") ||
+      integrationError.startsWith("tiktok_") ||
+      integrationError.startsWith("linkedin_") ||
+      integrationError === "session_expired"
+    ) {
+      setTab("Social Accounts");
+    }
+  }, []);
 
   async function loadLearning(id = workspaceId) {
     if (!id) return;
@@ -394,6 +404,7 @@ export default function Home() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Generation failed.");
       setGenerated(data.caption || "");
+      setGenerationMode(data.mode === "live" ? "live" : "demo");
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Generation failed.");
     } finally {
@@ -504,13 +515,14 @@ export default function Home() {
   }
 
   async function saveDraft() {
-    if (!workspaceId || !idea.trim() || !generated.trim()) return;
+    if (!workspaceId || idea.trim().length < 3 || generated.trim().length < 3) return;
     setSaving(true);
     setAuthError("");
 
     try {
-      const response = await fetch("/api/content/drafts", {
-        method: "POST",
+      const updating = Boolean(draftId);
+      const response = await fetch(updating ? `/api/content/drafts/${draftId}` : "/api/content/drafts", {
+        method: updating ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           workspaceId,
@@ -524,12 +536,24 @@ export default function Home() {
 
       setDraftId(data.draft.id);
       setDraftStatus(data.draft.status);
+      setGenerated(data.draft.caption);
+      setIdea(data.draft.title ?? idea);
       await loadDrafts();
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Unable to save draft.");
     } finally {
       setSaving(false);
     }
+  }
+
+  function editDraft(draft: Draft) {
+    setIdea(draft.title ?? "");
+    setGenerated(draft.caption);
+    setDraftId(draft.id);
+    setDraftStatus(draft.status);
+    setGenerationMode("");
+    setAuthError("");
+    openTab("AI Studio");
   }
 
   async function reviewDraft(id: string, action: "submit" | "approve" | "reject" | "changes_requested") {
@@ -638,6 +662,14 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const overviewStats = [
+    ["Content this week", String(drafts.filter((draft) => new Date(draft.created_at).getTime() >= weekAgo).length), "Saved in the last 7 days"],
+    ["Engagement rate", "—", "Connect a social account for live metrics"],
+    ["Pending approvals", String(drafts.filter((draft) => draft.status === "in_review").length), "Awaiting human review"],
+    ["Saved drafts", String(drafts.length), "Across this workspace"],
+  ];
+
   if (authLoading) {
     return (
       <main className="auth-loading">
@@ -739,6 +771,13 @@ export default function Home() {
 
         {tab === "Overview" && (
           <>
+            <QuickStartGuide
+              brandConfigured={Boolean(brandVoice.trim() || brandDescription.trim() || brandAudience.trim() || brandPillars.trim())}
+              draftCount={drafts.length}
+              onOpenBrandBrain={() => openTab("Brand Brain")}
+              onOpenAIStudio={() => openTab("AI Studio")}
+              onOpenCampaigns={() => openTab("Campaigns")}
+            />
             <div className="hero">
               <div>
                 <span className="pill"><span className="dot" /> Agent online</span>
@@ -755,7 +794,7 @@ export default function Home() {
             </div>
 
             <div className="stats">
-              {stats.map(([label, value, detail]) => (
+              {overviewStats.map(([label, value, detail]) => (
                 <div className="stat" key={label}>
                   <small>{label}</small>
                   <strong>{value}</strong>
@@ -830,24 +869,40 @@ export default function Home() {
               </div>
             </div>
 
+            {authError && !generated && <div className="auth-message error" role="alert">{authError}</div>}
+
             {generated && (
               <div className="result">
                 <div className="panel-head">
                   <div><small>GENERATED DRAFT</small><h3>{draftStatus === "in_review" ? "Awaiting approval" : "Ready for review"}</h3></div>
-                  <span className={`status ${draftStatus === "approved" ? "approved" : draftStatus === "in_review" ? "needs-review" : "draft"}`}>
-                    {statusLabel(draftStatus)}
-                  </span>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    {generationMode && (
+                      <span className={`status ${generationMode === "live" ? "approved" : "needs-review"}`}>
+                        {generationMode === "live" ? "Live AI" : "Demo mode"}
+                      </span>
+                    )}
+                    <span className={`status ${draftStatus === "approved" ? "approved" : draftStatus === "in_review" ? "needs-review" : "draft"}`}>
+                      {statusLabel(draftStatus)}
+                    </span>
+                  </div>
                 </div>
-                <p>{generated}</p>
+                <textarea
+                  className="generated-editor"
+                  aria-label="Edit generated content"
+                  value={generated}
+                  onChange={(event) => setGenerated(event.target.value)}
+                  rows={8}
+                  disabled={Boolean(draftId && !["draft", "rejected"].includes(draftStatus))}
+                />
                 <div className="result-actions">
-                  {!draftId && (
-                    <button onClick={saveDraft} disabled={saving}>
-                      {saving ? "Saving…" : "Save draft"}
+                  {(!draftId || ["draft", "rejected"].includes(draftStatus)) && (
+                    <button onClick={saveDraft} disabled={saving || idea.trim().length < 3 || generated.trim().length < 3}>
+                      {saving ? "Saving…" : draftId ? "Save changes" : "Save draft"}
                     </button>
                   )}
-                  {draftId && draftStatus === "draft" && (
+                  {draftId && ["draft", "rejected"].includes(draftStatus) && (
                     <button className="primary" onClick={() => reviewDraft(draftId, "submit")} disabled={reviewing}>
-                      {reviewing ? "Submitting…" : <>Send to approval <ChevronRight size={15} /></>}
+                      {reviewing ? "Submitting…" : <>{draftStatus === "rejected" ? "Resubmit for approval" : "Send to approval"} <ChevronRight size={15} /></>}
                     </button>
                   )}
                   {draftId && draftStatus === "in_review" && (
@@ -958,7 +1013,7 @@ export default function Home() {
           </div>
         )}
 
-        {tab === "Social Accounts" && <LinkedInIntegration workspaceId={workspaceId} />}
+        {tab === "Social Accounts" && <SocialAccountsPanel workspaceId={workspaceId} />}
 
         {tab === "Content Calendar" && (
           <div className="calendar-view">
@@ -999,8 +1054,13 @@ export default function Home() {
                     <span className={`status ${draft.status === "approved" ? "approved" : draft.status === "in_review" ? "needs-review" : "draft"}`}>
                       {statusLabel(draft.status)}
                     </span>
-                    {draft.status === "draft" && (
-                      <button onClick={() => reviewDraft(draft.id, "submit")} disabled={reviewing || Boolean(draft.media_status && !["generated", "not_required"].includes(draft.media_status))}>Submit</button>
+                    {["draft", "rejected"].includes(draft.status) && (
+                      <>
+                        <button onClick={() => editDraft(draft)}>Edit</button>
+                        <button onClick={() => reviewDraft(draft.id, "submit")} disabled={reviewing || Boolean(draft.media_status && !["generated", "not_required"].includes(draft.media_status))}>
+                          {draft.status === "rejected" ? "Resubmit" : "Submit"}
+                        </button>
+                      </>
                     )}
                     {draft.status === "in_review" && (
                       <>

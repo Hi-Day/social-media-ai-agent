@@ -62,12 +62,13 @@ export default function LinkedInIntegration({ workspaceId }: { workspaceId: stri
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const integrationError = params.get("integration_error") || "";
     if (params.get("integration") === "linkedin_connected") {
       setMessage("LinkedIn account connected.");
       window.history.replaceState({}, "", window.location.pathname);
       void load();
-    } else if (params.has("integration_error")) {
-      setError("LinkedIn connection failed (" + params.get("integration_error") + "). Check app credentials, product access, and callback URL.");
+    } else if (integrationError.startsWith("linkedin_") || integrationError === "session_expired") {
+      setError("LinkedIn connection failed (" + integrationError + "). Check app credentials, product access, and callback URL.");
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, [load]);
