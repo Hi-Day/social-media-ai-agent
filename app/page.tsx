@@ -35,6 +35,7 @@ const navigation = [
   { icon: BrainCircuit, name: "Learning Loop" },
   { icon: Settings, name: "Model Registry" },
   { icon: CreditCard, name: "Usage & Costs" },
+  { icon: CreditCard, name: "Subscription" },
   { icon: Link2, name: "Social Accounts" },
 ];
 
@@ -76,6 +77,12 @@ type UsageBudgetData = {
   reserved_credits: number;
   remaining_credits: number | null;
   editable: boolean;
+};
+type BillingPlanCode = "starter" | "growth" | "agency";
+type BillingPlanOption = { code: BillingPlanCode; amountIdr: number; monthlyCreditLimit: number };
+type BillingData = {
+  subscription: { id: string; plan_code: string; amount_idr: number; monthly_credit_limit: number; status: string; current_period_start: string | null; current_period_end: string | null } | null;
+  availablePlans: BillingPlanOption[];
 };
 
 type Draft = {
@@ -171,6 +178,12 @@ export default function Home() {
   const [budgetSaving, setBudgetSaving] = useState(false);
   const [budgetMessage, setBudgetMessage] = useState("");
   const [budgetError, setBudgetError] = useState("");
+  const [billingData, setBillingData] = useState<BillingData | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [billingBusy, setBillingBusy] = useState(false);
+  const [billingPlan, setBillingPlan] = useState<BillingPlanCode>("growth");
+  const [billingMessage, setBillingMessage] = useState("");
+  const [billingError, setBillingError] = useState("");
 
   const router = useRouter();
 
@@ -223,6 +236,7 @@ export default function Home() {
   useEffect(() => {
     if ((tab === "Learning Loop" || tab === "Analytics") && workspaceId) void loadLearning(workspaceId);
     if (tab === "Usage & Costs" && workspaceId) void loadUsage(workspaceId);
+    if (tab === "Subscription" && workspaceId) void loadBilling(workspaceId);
   }, [tab, workspaceId]);
 
   async function loadDrafts(id = workspaceId) {
@@ -261,6 +275,48 @@ export default function Home() {
       setBudgetError("");
     } catch (error) {
       setBudgetError(error instanceof Error ? error.message : "Unable to load budget settings.");
+    }
+  }
+
+  async function loadBilling(id = workspaceId) {
+    if (!id) return;
+    setBillingLoading(true);
+    setBillingError("");
+    try {
+      const response = await fetch(`/api/billing/subscription?workspaceId=${encodeURIComponent(id)}`, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to load subscription.");
+      const next = data as BillingData;
+      setBillingData(next);
+      setBillingPlan((current) => next.availablePlans?.some((plan) => plan.code === current)
+        ? current
+        : next.availablePlans?.[0]?.code ?? "growth");
+    } catch (error) {
+      setBillingError(error instanceof Error ? error.message : "Unable to load subscription.");
+    } finally {
+      setBillingLoading(false);
+    }
+  }
+
+  async function startBillingCheckout() {
+    if (!workspaceId) return;
+    setBillingBusy(true);
+    setBillingMessage("");
+    setBillingError("");
+    try {
+      const response = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ workspaceId, planCode: billingPlan }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to start checkout.");
+      setBillingMessage("Opening secure Xendit checkout…");
+      window.location.assign(data.checkoutUrl);
+    } catch (error) {
+      setBillingError(error instanceof Error ? error.message : "Unable to start checkout.");
+    } finally {
+      setBillingBusy(false);
     }
   }
 
@@ -1160,6 +1216,57 @@ export default function Home() {
                 </form>
               )}
               <p className="learning-note">Budget limits are measured in estimated product credits, not USD. A hard limit reserves credits before execution to reduce overspending from concurrent requests. Active reservations expire automatically after 30 minutes if an execution is interrupted.</p>
+            </div>
+          </div>
+        )}
+
+        {tab === "Subscription" && (
+          <div className="learning-view">
+            <div className="studio-copy">
+              <span className="eyebrow">BILLING · SUBSCRIPTIONS</span>
+              <h2>Manage your workspace<br />subscription.</h2>
+              <p>Choose a plan configured for this workspace. Paid access is activated only after a verified Xendit webhook, never by the checkout redirect.</p>
+            </div>
+            {billingError && <div className="learning-message learning-error" role="alert">{billingError}</div>}
+            {billingMessage && <div className="learning-message" role="status">{billingMessage}</div>}
+            <div className="learning-grid">
+              <div className="panel">
+                <small>CURRENT SUBSCRIPTION</small>
+                <h3>{billingLoading && !billingData ? "Loading…" : statusLabel(billingData?.subscription?.status ?? "no subscription")}</h3>
+                {billingData?.subscription ? (
+                  <>
+                    <p>Plan: <b>{statusLabel(billingData.subscription.plan_code)}</b></p>
+                    <p>Price: <b>{billingData.subscription.amount_idr.toLocaleString("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 })}</b> / month</p>
+                    <p>Included monthly credits: {billingData.subscription.monthly_credit_limit.toLocaleString("id-ID", { maximumFractionDigits: 2 })}</p>
+                    {billingData.subscription.current_period_end && <p>Next scheduled cycle: {new Date(billingData.subscription.current_period_end).toLocaleDateString()}</p>}
+                  </>
+                ) : <p>No subscription record is available for this workspace yet.</p>}
+                <button onClick={() => void loadBilling()} disabled={billingLoading}>{billingLoading ? "Refreshing…" : "Refresh subscription"}</button>
+              </div>
+              <div className="panel">
+                <small>AVAILABLE PLANS</small>
+                <h3>Choose a monthly plan</h3>
+                {billingData?.availablePlans?.length ? (
+                  <>
+                    <label className="wide">Plan
+                      <select value={billingPlan} onChange={(e) => setBillingPlan(e.target.value as BillingPlanCode)}>
+                        {billingData.availablePlans.map((plan) => (
+                          <option key={plan.code} value={plan.code}>
+                            {statusLabel(plan.code)} · {plan.amountIdr.toLocaleString("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 })} / month
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <p>Included credits: {billingData.availablePlans.find((plan) => plan.code === billingPlan)?.monthlyCreditLimit.toLocaleString("id-ID", { maximumFractionDigits: 2 }) ?? "—"} per month.</p>
+                    <button className="primary" onClick={() => void startBillingCheckout()} disabled={billingBusy || billingLoading}>
+                      {billingBusy ? "Preparing checkout…" : "Continue to secure checkout"}
+                    </button>
+                  </>
+                ) : (
+                  <p>Plan pricing is not configured yet. An administrator must set server-side plan prices and included credits before checkout can be opened.</p>
+                )}
+                <p className="learning-note">Checkout is hosted by Xendit. Do not retry a payment until the subscription status has been refreshed.</p>
+              </div>
             </div>
           </div>
         )}
