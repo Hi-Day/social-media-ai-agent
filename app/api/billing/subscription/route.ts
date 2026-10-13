@@ -18,5 +18,12 @@ export async function GET(request: Request) {
     .eq("workspace_id", workspaceId).in("status", ["pending","active","past_due","inactive","failed"])
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (error) return NextResponse.json({ error: "Unable to load subscription status" }, { status: 500 });
-  return NextResponse.json({ workspaceId, subscription: data ?? null });
+  const availablePlans = (["starter", "growth", "agency"] as const).flatMap((code) => {
+    const prefix = "SOCIALOS_" + code.toUpperCase();
+    const amountIdr = Number(process.env[prefix + "_PRICE_IDR"]);
+    const monthlyCreditLimit = Number(process.env[prefix + "_MONTHLY_CREDITS"]);
+    if (!Number.isSafeInteger(amountIdr) || amountIdr <= 0 || !Number.isFinite(monthlyCreditLimit) || monthlyCreditLimit <= 0) return [];
+    return [{ code, amountIdr, monthlyCreditLimit }];
+  });
+  return NextResponse.json({ workspaceId, subscription: data ?? null, availablePlans });
 }
