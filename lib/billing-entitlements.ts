@@ -1,19 +1,29 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-
-type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 export function isSubscriptionActive(status: string | null | undefined): boolean {
   return status === "active";
 }
 
 export async function enforceWorkspaceSubscription(
-  supabase: SupabaseServerClient,
+  _sessionClient: unknown,
   workspaceId: string,
 ): Promise<NextResponse | null> {
   if (process.env.BILLING_ENFORCEMENT_ENABLED !== "true") return null;
 
-  const { data, error } = await supabase.from("workspace_subscriptions")
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) {
+    return NextResponse.json({
+      error: "Subscription verification is not configured",
+      code: "subscription_verification_unavailable",
+    }, { status: 503 });
+  }
+
+  const admin = createSupabaseClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await admin.from("workspace_subscriptions")
     .select("status,plan_code").eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (error) {
