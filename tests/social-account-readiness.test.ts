@@ -24,6 +24,8 @@ describe("social account readiness", () => {
     expect(panel).toContain('disabled={!status?.configured || Boolean(busyAccount)}');
     expect(panel).toContain('method: "DELETE"');
     expect(panel).toContain("LinkedInIntegration workspaceId={workspaceId}");
+    expect(read("app/page.tsx")).toContain('integration.endsWith("_connected")');
+    expect(read("app/page.tsx")).toContain('setTab("Social Accounts")');
   });
 
   it("keeps OAuth callback errors namespaced to their provider", () => {
