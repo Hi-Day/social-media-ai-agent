@@ -47,10 +47,18 @@ export default function LoginPage() {
   }
 
   function verificationRedirectUrl() {
-    return (
-      (process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, "") +
-      "/auth/callback"
-    );
+    // Never send production verification links to a stale localhost environment value.
+    // In production, window.location.origin is the deployed Vercel domain; in local
+    // development it remains localhost so local testing still works.
+    const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+    const safeConfiguredUrl =
+      configuredUrl && /^https:\/\//i.test(configuredUrl) &&
+      !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(?:\/|$)/i.test(configuredUrl)
+        ? configuredUrl
+        : window.location.origin;
+
+    const baseUrl = safeConfiguredUrl.replace(/\/$/, "");
+    return `${baseUrl}/auth/callback`;
   }
 
   async function resendVerification() {
