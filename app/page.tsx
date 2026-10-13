@@ -724,7 +724,7 @@ export default function Home() {
         </div>
 
         <nav>
-          {navigation.map(({ icon: Icon, name }) => (
+          {navigation.filter((item) => item.name !== "Subscription" || canManageLearning).map(({ icon: Icon, name }) => (
             <button className={tab === name ? "active" : ""} onClick={() => openTab(name)} key={name}>
               <Icon size={17} />
               {name}
@@ -739,7 +739,7 @@ export default function Home() {
           aria-label="Open navigation"
         >
           {(() => {
-            const current = navigation.find((item) => item.name === tab) ?? navigation[0];
+            const current = navigation.filter((item) => item.name !== "Subscription" || canManageLearning).find((item) => item.name === tab) ?? navigation[0];
             const Icon = current.icon;
             return (
               <>
@@ -753,7 +753,7 @@ export default function Home() {
 
         {mobileNavOpen && (
           <div className="mobile-nav-menu">
-            {navigation.map(({ icon: Icon, name }) => (
+            {navigation.filter((item) => item.name !== "Subscription" || canManageLearning).map(({ icon: Icon, name }) => (
               <button
                 className={tab === name ? "selected" : ""}
                 onClick={() => openTab(name)}
