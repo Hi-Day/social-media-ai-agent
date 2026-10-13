@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 
 const validPlan = (code: string) => ["starter", "growth", "agency"].includes(code);
 
@@ -12,7 +13,7 @@ describe("billing plan validation contract", () => {
   });
 
   it("keeps checkout authority server-side", () => {
-    const source = require("node:fs").readFileSync("app/api/billing/checkout/route.ts", "utf8");
+    const source = readFileSync("app/api/billing/checkout/route.ts", "utf8");
     expect(source).toContain("SOCIALOS_");
     expect(source).toContain("SUPABASE_SERVICE_ROLE_KEY");
     expect(source).toContain("Wait for a verified Xendit webhook");
