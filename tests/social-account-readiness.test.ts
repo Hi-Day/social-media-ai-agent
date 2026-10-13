@@ -9,9 +9,9 @@ describe("social account readiness", () => {
     const route = read("app/api/integrations/status/route.ts");
     expect(route).toContain('await supabase.auth.getUser()');
     expect(route).toContain('["owner", "admin"].includes(membership.role)');
-    expect(route).toContain("configured: Boolean(process.env.INSTAGRAM_APP_ID");
-    expect(route).toContain("configured: Boolean(process.env.TIKTOK_CLIENT_KEY");
-    expect(route).toContain("configured: Boolean(process.env.LINKEDIN_CLIENT_ID");
+    expect(route).toContain("instagram: Boolean(process.env.INSTAGRAM_APP_ID");
+    expect(route).toContain("tiktok: Boolean(process.env.TIKTOK_CLIENT_KEY");
+    expect(route).toContain("linkedin: Boolean(process.env.LINKEDIN_CLIENT_ID");
     expect(route).not.toContain("process.env.INSTAGRAM_APP_SECRET,");
     expect(route).not.toContain("process.env.TIKTOK_CLIENT_SECRET,");
   });
