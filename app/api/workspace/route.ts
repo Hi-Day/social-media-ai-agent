@@ -64,42 +64,43 @@ export async function POST(request: Request) {
       ? body.brandName.trim()
       : workspaceName;
 
-  const { data: workspace, error: workspaceError } = await supabase
-    .from("workspaces")
-    .insert({ name: workspaceName })
-    .select("id, name, created_at")
-    .single();
+  // Create workspace, owner membership, and initial brand atomically. The RPC
+  // avoids INSERT ... RETURNING on workspaces before the user is a member,
+  // which can conflict with the workspace SELECT RLS policy.
+  const { data: workspaceId, error: createError } = await supabase.rpc(
+    "create_workspace_for_current_user",
+    { p_name: workspaceName, p_brand_name: brandName },
+  );
 
-  if (workspaceError || !workspace) {
+  if (createError || !workspaceId) {
     return NextResponse.json(
-      { error: workspaceError?.message || "Unable to create workspace" },
+      { error: createError?.message || "Unable to create workspace" },
       { status: 500 },
     );
   }
 
-  const { error: memberError } = await supabase
-    .from("workspace_members")
-    .insert({
-      workspace_id: workspace.id,
-      user_id: userData.user.id,
-      role: "owner",
-    });
+  // The RPC has already added the current user as owner, so normal RLS reads
+  // are now allowed.
+  const [{ data: workspace, error: workspaceReadError }, { data: brands, error: brandReadError }] =
+    await Promise.all([
+      supabase.from("workspaces").select("id, name, created_at").eq("id", workspaceId).single(),
+      supabase
+        .from("brands")
+        .select("id, name, voice, description, audience")
+        .eq("workspace_id", workspaceId)
+        .order("created_at")
+        .limit(1),
+    ]);
 
-  if (memberError) {
-    await supabase.from("workspaces").delete().eq("id", workspace.id);
-    return NextResponse.json({ error: memberError.message }, { status: 500 });
+  if (workspaceReadError || brandReadError || !workspace) {
+    return NextResponse.json(
+      { error: workspaceReadError?.message || brandReadError?.message || "Workspace created but could not be loaded" },
+      { status: 500 },
+    );
   }
 
-  const { data: brand, error: brandError } = await supabase
-    .from("brands")
-    .insert({ workspace_id: workspace.id, name: brandName })
-    .select("id, name, voice, description, audience")
-    .single();
-
-  if (brandError) {
-    await supabase.from("workspaces").delete().eq("id", workspace.id);
-    return NextResponse.json({ error: brandError.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ workspace, brand, role: "owner" }, { status: 201 });
+  return NextResponse.json(
+    { workspace, brand: brands?.[0] ?? null, role: "owner" },
+    { status: 201 },
+  );
 }
