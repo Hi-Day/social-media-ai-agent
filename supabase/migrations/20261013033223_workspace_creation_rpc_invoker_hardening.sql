@@ -1,5 +1,5 @@
 -- Keep the public RPC as an invoker wrapper. The existing private function
--- performs the atomic writes under its tightly scoped SECURITY DEFINER body
+-- performs the atomic writes under its tightly scoped privileged body
 -- and validates auth.uid(); the public wrapper itself needs no elevated rights.
 create or replace function public.create_workspace_for_current_user(
   p_name text,
