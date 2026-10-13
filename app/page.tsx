@@ -22,6 +22,7 @@ import {
   Link2,
 } from "lucide-react";
 import LinkedInIntegration from "@/app/components/linkedin-integration";
+import QuickStartGuide from "@/app/components/quick-start-guide";
 
 const navigation = [
   { icon: LayoutDashboard, name: "Overview" },
@@ -120,6 +121,7 @@ export default function Home() {
   const [campaignExecutionLoading, setCampaignExecutionLoading] = useState(false);
   const [campaignExecutionMessage, setCampaignExecutionMessage] = useState("");
   const [generated, setGenerated] = useState("");
+  const [generationMode, setGenerationMode] = useState<"live" | "demo" | "">("");
   const [draftId, setDraftId] = useState("");
   const [draftStatus, setDraftStatus] = useState("draft");
   const [drafts, setDrafts] = useState<Draft[]>([]);
@@ -394,6 +396,7 @@ export default function Home() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Generation failed.");
       setGenerated(data.caption || "");
+      setGenerationMode(data.mode === "live" ? "live" : "demo");
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Generation failed.");
     } finally {
@@ -739,6 +742,13 @@ export default function Home() {
 
         {tab === "Overview" && (
           <>
+            <QuickStartGuide
+              brandConfigured={Boolean(brandVoice.trim() || brandDescription.trim() || brandAudience.trim() || brandPillars.trim())}
+              draftCount={drafts.length}
+              onOpenBrandBrain={() => openTab("Brand Brain")}
+              onOpenAIStudio={() => openTab("AI Studio")}
+              onOpenCampaigns={() => openTab("Campaigns")}
+            />
             <div className="hero">
               <div>
                 <span className="pill"><span className="dot" /> Agent online</span>
@@ -830,13 +840,20 @@ export default function Home() {
               </div>
             </div>
 
+            {authError && !generated && <div className="auth-message error" role="alert">{authError}</div>}
+
             {generated && (
               <div className="result">
                 <div className="panel-head">
                   <div><small>GENERATED DRAFT</small><h3>{draftStatus === "in_review" ? "Awaiting approval" : "Ready for review"}</h3></div>
-                  <span className={`status ${draftStatus === "approved" ? "approved" : draftStatus === "in_review" ? "needs-review" : "draft"}`}>
-                    {statusLabel(draftStatus)}
-                  </span>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <span className={`status ${generationMode === "live" ? "approved" : "needs-review"}`}>
+                      {generationMode === "live" ? "Live AI" : "Demo mode"}
+                    </span>
+                    <span className={`status ${draftStatus === "approved" ? "approved" : draftStatus === "in_review" ? "needs-review" : "draft"}`}>
+                      {statusLabel(draftStatus)}
+                    </span>
+                  </div>
                 </div>
                 <p>{generated}</p>
                 <div className="result-actions">
