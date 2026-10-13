@@ -21,3 +21,13 @@ describe("first-run product guidance", () => {
     expect(page).toContain('{authError && !generated && <div className="auth-message error" role="alert">');
   });
 });
+
+describe("overview metrics", () => {
+  it("derives draft and approval counts from saved workspace data instead of placeholders", () => {
+    const page = read("app/page.tsx");
+    expect(page).toContain("const overviewStats = [");
+    expect(page).toContain('drafts.filter((draft) => draft.status === "in_review").length');
+    expect(page).toContain('["Saved drafts", String(drafts.length), "Across this workspace"]');
+    expect(page).not.toContain('["AI actions", "—", "This week"]');
+  });
+});
