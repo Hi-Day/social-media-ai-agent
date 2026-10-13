@@ -10,7 +10,7 @@ describe("content draft editing", () => {
     expect(route).toContain("export async function PATCH");
     expect(route).toContain("await supabase.auth.getUser()");
     expect(route).toContain('.eq("workspace_id", workspaceId)');
-    expect(route).toContain('["draft", "changes_requested"].includes(existing.status)');
+    expect(route).toContain('["draft", "rejected"].includes(existing.status)');
     expect(route).toContain('.eq("status", existing.status)');
     expect(route).toContain('status: 409');
   });
@@ -20,7 +20,7 @@ describe("content draft editing", () => {
     expect(page).toContain('aria-label="Edit generated content"');
     expect(page).toContain('method: updating ? "PATCH" : "POST"');
     expect(page).toContain("function editDraft(draft: Draft)");
-    expect(page).toContain('draft.status === "changes_requested" ? "Resubmit" : "Submit"');
-    expect(page).toContain('draftStatus === "changes_requested" ? "Resubmit for approval" : "Send to approval"');
+    expect(page).toContain('draft.status === "rejected" ? "Resubmit" : "Submit"');
+    expect(page).toContain('draftStatus === "rejected" ? "Resubmit for approval" : "Send to approval"');
   });
 });
