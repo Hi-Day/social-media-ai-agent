@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     : data.schedule && typeof data.schedule === "object" && typeof (data.schedule as Record<string, unknown>).next_execution_at === "string"
       ? (data.schedule as Record<string, string>).next_execution_at : null;
   const now = new Date().toISOString();
-  const planId = typeof data.id === "string" && data.id.startsWith("repl_") ? data.id
+  const planId = event.startsWith("recurring.plan.") && typeof data.id === "string" ? data.id
     : typeof data.recurring_plan_id === "string" ? data.recurring_plan_id
     : subscription.provider_subscription_id;
   const { error: updateError } = await admin.from("workspace_subscriptions").update({
