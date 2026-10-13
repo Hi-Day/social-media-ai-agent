@@ -94,13 +94,6 @@ type Draft = {
   media_url?: string | null;
 };
 
-const stats = [
-  ["Content this week", "—", "Live workspace"],
-  ["Engagement rate", "—", "Connect accounts"],
-  ["Pending approvals", "—", "Live workspace"],
-  ["AI actions", "—", "This week"],
-];
-
 function statusLabel(status: string) {
   return status.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -641,6 +634,14 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const overviewStats = [
+    ["Content this week", String(drafts.filter((draft) => new Date(draft.created_at).getTime() >= weekAgo).length), "Saved in the last 7 days"],
+    ["Engagement rate", "—", "Connect a social account for live metrics"],
+    ["Pending approvals", String(drafts.filter((draft) => draft.status === "in_review").length), "Awaiting human review"],
+    ["Saved drafts", String(drafts.length), "Across this workspace"],
+  ];
+
   if (authLoading) {
     return (
       <main className="auth-loading">
@@ -765,7 +766,7 @@ export default function Home() {
             </div>
 
             <div className="stats">
-              {stats.map(([label, value, detail]) => (
+              {overviewStats.map(([label, value, detail]) => (
                 <div className="stat" key={label}>
                   <small>{label}</small>
                   <strong>{value}</strong>
