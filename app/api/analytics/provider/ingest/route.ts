@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     .order("connected_at", { ascending: false }).limit(1).maybeSingle();
   if (connectionError) return NextResponse.json({ error: "Unable to load LinkedIn connection" }, { status: 500 });
   if (!connection) return NextResponse.json({ error: "LinkedIn account is not connected" }, { status: 409 });
-  if (!connection.token_expires_at || Date.parse(connection.token_expires_at) <= Date.now()) {
+  if (!connection.token_expires_at || !Number.isFinite(Date.parse(connection.token_expires_at)) || Date.parse(connection.token_expires_at) <= Date.now()) {
     return NextResponse.json({ error: "LinkedIn access token expired; reconnect the account" }, { status: 409 });
   }
   const scopes = Array.isArray(connection.scopes) ? connection.scopes : [];
