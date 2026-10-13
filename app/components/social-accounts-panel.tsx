@@ -149,7 +149,7 @@ export default function SocialAccountsPanel({ workspaceId }: { workspaceId: stri
             })}
           </div>
         )}
-        <p className="learning-note">Setelah terhubung, publikasi tetap harus mengikuti approval, izin API, dan persyaratan media masing-masing platform. Lakukan uji publikasi terkontrol sebelum dipakai untuk akun pelanggan.</p>
+        <p className="learning-note">Panel ini saat ini mengelola koneksi akun. UI publikasi Instagram/TikTok belum aktif; status Connected bukan bukti bahwa publikasi sudah diuji. Publikasi perlu dilanjutkan sebagai task terpisah setelah izin API dan persyaratan media tervalidasi.</p>
       </div>
       <LinkedInIntegration workspaceId={workspaceId} />
     </div>
