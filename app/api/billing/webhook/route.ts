@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   if (!admin) return NextResponse.json({ error: "Billing webhook is not configured" }, { status: 503 });
   const eventId = (event + ":" + resourceId + ":" + created).slice(0, 255);
   const hash = createHash("sha256").update(rawBody).digest("hex");
-  const { data: eventRow, error: eventError } = await admin.from("billing_webhook_events").insert({
+  const { data: insertedEvent, error: eventError } = await admin.from("billing_webhook_events").insert({
     provider: "xendit",
     event_id: eventId,
     event_type: event,
@@ -55,8 +55,23 @@ export async function POST(request: Request) {
     processing_status: "received",
   }).select("id").maybeSingle();
 
-  if (eventError?.code === "23505") return NextResponse.json({ received: true, duplicate: true });
-  if (eventError || !eventRow) return NextResponse.json({ error: "Unable to record webhook event" }, { status: 500 });
+  let eventRowId = insertedEvent?.id as string | undefined;
+  if (eventError?.code === "23505") {
+    const { data: existingEvent, error: existingEventError } = await admin.from("billing_webhook_events")
+      .select("id,processing_status").eq("provider", "xendit").eq("event_id", eventId).maybeSingle();
+    if (existingEventError || !existingEvent) {
+      return NextResponse.json({ error: "Unable to verify duplicate webhook event" }, { status: 500 });
+    }
+    if (["processed", "ignored", "rejected"].includes(existingEvent.processing_status)) {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+    eventRowId = existingEvent.id;
+    await admin.from("billing_webhook_events").update({
+      processing_status: "received", error_code: null, payload_sha256: hash,
+    }).eq("id", eventRowId);
+  } else if (eventError || !eventRowId) {
+    return NextResponse.json({ error: "Unable to record webhook event" }, { status: 500 });
+  }
 
   let query = admin.from("workspace_subscriptions").select("id,workspace_id,amount_idr,monthly_credit_limit,status,provider_subscription_id");
   if (referenceId) query = query.eq("id", referenceId);
@@ -65,7 +80,7 @@ export async function POST(request: Request) {
   if (subscriptionError || !subscription) {
     await admin.from("billing_webhook_events").update({
       processing_status: "ignored", error_code: "subscription_not_found", processed_at: new Date().toISOString(),
-    }).eq("id", eventRow.id);
+    }).eq("id", eventRowId);
     return NextResponse.json({ received: true, processed: false });
   }
 
@@ -75,7 +90,7 @@ export async function POST(request: Request) {
   if (requiresAmountCheck && (!Number.isFinite(amount) || amount !== Number(subscription.amount_idr) || currency !== "IDR")) {
     await admin.from("billing_webhook_events").update({
       processing_status: "rejected", error_code: "amount_or_currency_mismatch", processed_at: new Date().toISOString(),
-    }).eq("id", eventRow.id);
+    }).eq("id", eventRowId);
     return NextResponse.json({ received: true, processed: false });
   }
 
@@ -87,7 +102,7 @@ export async function POST(request: Request) {
   if (!nextStatus) {
     await admin.from("billing_webhook_events").update({
       processing_status: "ignored", processed_at: new Date().toISOString(),
-    }).eq("id", eventRow.id);
+    }).eq("id", eventRowId);
     return NextResponse.json({ received: true, processed: false });
   }
 
@@ -108,7 +123,7 @@ export async function POST(request: Request) {
   if (updateError) {
     await admin.from("billing_webhook_events").update({
       processing_status: "failed", error_code: "subscription_update_failed", processed_at: now,
-    }).eq("id", eventRow.id);
+    }).eq("id", eventRowId);
     return NextResponse.json({ error: "Unable to update subscription state" }, { status: 500 });
   }
 
@@ -123,13 +138,13 @@ export async function POST(request: Request) {
     if (budgetError) {
       await admin.from("billing_webhook_events").update({
         processing_status: "failed", error_code: "entitlement_budget_update_failed", processed_at: now,
-      }).eq("id", eventRow.id);
+      }).eq("id", eventRowId);
       return NextResponse.json({ error: "Subscription active but budget entitlement could not be updated" }, { status: 500 });
     }
   }
 
   await admin.from("billing_webhook_events").update({
     processing_status: "processed", processed_at: now,
-  }).eq("id", eventRow.id);
+  }).eq("id", eventRowId);
   return NextResponse.json({ received: true, processed: true, status: nextStatus });
 }
