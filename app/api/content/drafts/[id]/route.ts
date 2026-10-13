@@ -40,8 +40,8 @@ export async function PATCH(
     .maybeSingle();
   if (existingError) return NextResponse.json({ error: "Unable to load draft." }, { status: 500 });
   if (!existing) return NextResponse.json({ error: "Draft not found." }, { status: 404 });
-  if (!["draft", "changes_requested"].includes(existing.status)) {
-    return NextResponse.json({ error: "Only drafts that have not been submitted or approved can be edited." }, { status: 409 });
+  if (!["draft", "rejected"].includes(existing.status)) {
+    return NextResponse.json({ error: "Only draft or rejected content can be edited." }, { status: 409 });
   }
 
   const { data: draft, error: updateError } = await supabase
