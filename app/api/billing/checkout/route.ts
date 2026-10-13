@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
@@ -131,7 +130,7 @@ export async function POST(request: Request) {
         Authorization: "Basic " + Buffer.from(xenditKey + ":").toString("base64"),
         "Content-Type": "application/json",
         "api-version": "2026-01-01",
-        "Idempotency-Key": randomUUID(),
+        "Idempotency-Key": subscription.id,
       },
       body: JSON.stringify(payload),
       cache: "no-store",
