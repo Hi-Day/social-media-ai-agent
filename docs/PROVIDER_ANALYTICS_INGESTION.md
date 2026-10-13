@@ -49,3 +49,9 @@ Never label data live merely because a database row exists. Preserve the existin
 
 ## Rollout
 Start with LinkedIn metrics available to the authorized application. Add other providers only after their API access, scopes, terms, and metric definitions are verified. Use feature flags and do not present the integration as production-ready until a real authorized-account test is recorded.
+
+## Current implementation status (2026-10-13)
+- A manual LinkedIn snapshot-sync endpoint is being introduced for likes and comments on posts published by this app.
+- The endpoint is fail-closed unless the linked account has the `r_member_social_feed` permission and the server has `SUPABASE_SERVICE_ROLE_KEY` configured.
+- LinkedIn documents `r_member_social_feed` as restricted to select developers; do not promise live analytics until the app is approved and an authorized-account test succeeds.
+- Impressions, reach, saves, scheduled ingestion, and Instagram/TikTok analytics are not implemented by this first slice.
