@@ -515,13 +515,14 @@ export default function Home() {
   }
 
   async function saveDraft() {
-    if (!workspaceId || !idea.trim() || !generated.trim()) return;
+    if (!workspaceId || idea.trim().length < 3 || generated.trim().length < 3) return;
     setSaving(true);
     setAuthError("");
 
     try {
-      const response = await fetch("/api/content/drafts", {
-        method: "POST",
+      const updating = Boolean(draftId);
+      const response = await fetch(updating ? `/api/content/drafts/${draftId}` : "/api/content/drafts", {
+        method: updating ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           workspaceId,
@@ -535,12 +536,24 @@ export default function Home() {
 
       setDraftId(data.draft.id);
       setDraftStatus(data.draft.status);
+      setGenerated(data.draft.caption);
+      setIdea(data.draft.title ?? idea);
       await loadDrafts();
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Unable to save draft.");
     } finally {
       setSaving(false);
     }
+  }
+
+  function editDraft(draft: Draft) {
+    setIdea(draft.title ?? "");
+    setGenerated(draft.caption);
+    setDraftId(draft.id);
+    setDraftStatus(draft.status);
+    setGenerationMode("");
+    setAuthError("");
+    openTab("AI Studio");
   }
 
   async function reviewDraft(id: string, action: "submit" | "approve" | "reject" | "changes_requested") {
@@ -863,24 +876,33 @@ export default function Home() {
                 <div className="panel-head">
                   <div><small>GENERATED DRAFT</small><h3>{draftStatus === "in_review" ? "Awaiting approval" : "Ready for review"}</h3></div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <span className={`status ${generationMode === "live" ? "approved" : "needs-review"}`}>
-                      {generationMode === "live" ? "Live AI" : "Demo mode"}
-                    </span>
+                    {generationMode && (
+                      <span className={`status ${generationMode === "live" ? "approved" : "needs-review"}`}>
+                        {generationMode === "live" ? "Live AI" : "Demo mode"}
+                      </span>
+                    )}
                     <span className={`status ${draftStatus === "approved" ? "approved" : draftStatus === "in_review" ? "needs-review" : "draft"}`}>
                       {statusLabel(draftStatus)}
                     </span>
                   </div>
                 </div>
-                <p>{generated}</p>
+                <textarea
+                  className="generated-editor"
+                  aria-label="Edit generated content"
+                  value={generated}
+                  onChange={(event) => setGenerated(event.target.value)}
+                  rows={8}
+                  disabled={Boolean(draftId && !["draft", "changes_requested"].includes(draftStatus))}
+                />
                 <div className="result-actions">
-                  {!draftId && (
-                    <button onClick={saveDraft} disabled={saving}>
-                      {saving ? "Saving…" : "Save draft"}
+                  {(!draftId || ["draft", "changes_requested"].includes(draftStatus)) && (
+                    <button onClick={saveDraft} disabled={saving || idea.trim().length < 3 || generated.trim().length < 3}>
+                      {saving ? "Saving…" : draftId ? "Save changes" : "Save draft"}
                     </button>
                   )}
-                  {draftId && draftStatus === "draft" && (
+                  {draftId && ["draft", "changes_requested"].includes(draftStatus) && (
                     <button className="primary" onClick={() => reviewDraft(draftId, "submit")} disabled={reviewing}>
-                      {reviewing ? "Submitting…" : <>Send to approval <ChevronRight size={15} /></>}
+                      {reviewing ? "Submitting…" : <>{draftStatus === "changes_requested" ? "Resubmit for approval" : "Send to approval"} <ChevronRight size={15} /></>}
                     </button>
                   )}
                   {draftId && draftStatus === "in_review" && (
@@ -1032,8 +1054,13 @@ export default function Home() {
                     <span className={`status ${draft.status === "approved" ? "approved" : draft.status === "in_review" ? "needs-review" : "draft"}`}>
                       {statusLabel(draft.status)}
                     </span>
-                    {draft.status === "draft" && (
-                      <button onClick={() => reviewDraft(draft.id, "submit")} disabled={reviewing || Boolean(draft.media_status && !["generated", "not_required"].includes(draft.media_status))}>Submit</button>
+                    {["draft", "changes_requested"].includes(draft.status) && (
+                      <>
+                        <button onClick={() => editDraft(draft)}>Edit</button>
+                        <button onClick={() => reviewDraft(draft.id, "submit")} disabled={reviewing || Boolean(draft.media_status && !["generated", "not_required"].includes(draft.media_status))}>
+                          {draft.status === "changes_requested" ? "Resubmit" : "Submit"}
+                        </button>
+                      </>
                     )}
                     {draft.status === "in_review" && (
                       <>
