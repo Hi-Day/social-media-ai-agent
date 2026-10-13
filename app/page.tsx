@@ -892,17 +892,17 @@ export default function Home() {
                   value={generated}
                   onChange={(event) => setGenerated(event.target.value)}
                   rows={8}
-                  disabled={Boolean(draftId && !["draft", "changes_requested"].includes(draftStatus))}
+                  disabled={Boolean(draftId && !["draft", "rejected"].includes(draftStatus))}
                 />
                 <div className="result-actions">
-                  {(!draftId || ["draft", "changes_requested"].includes(draftStatus)) && (
+                  {(!draftId || ["draft", "rejected"].includes(draftStatus)) && (
                     <button onClick={saveDraft} disabled={saving || idea.trim().length < 3 || generated.trim().length < 3}>
                       {saving ? "Saving…" : draftId ? "Save changes" : "Save draft"}
                     </button>
                   )}
-                  {draftId && ["draft", "changes_requested"].includes(draftStatus) && (
+                  {draftId && ["draft", "rejected"].includes(draftStatus) && (
                     <button className="primary" onClick={() => reviewDraft(draftId, "submit")} disabled={reviewing}>
-                      {reviewing ? "Submitting…" : <>{draftStatus === "changes_requested" ? "Resubmit for approval" : "Send to approval"} <ChevronRight size={15} /></>}
+                      {reviewing ? "Submitting…" : <>{draftStatus === "rejected" ? "Resubmit for approval" : "Send to approval"} <ChevronRight size={15} /></>}
                     </button>
                   )}
                   {draftId && draftStatus === "in_review" && (
@@ -1054,11 +1054,11 @@ export default function Home() {
                     <span className={`status ${draft.status === "approved" ? "approved" : draft.status === "in_review" ? "needs-review" : "draft"}`}>
                       {statusLabel(draft.status)}
                     </span>
-                    {["draft", "changes_requested"].includes(draft.status) && (
+                    {["draft", "rejected"].includes(draft.status) && (
                       <>
                         <button onClick={() => editDraft(draft)}>Edit</button>
                         <button onClick={() => reviewDraft(draft.id, "submit")} disabled={reviewing || Boolean(draft.media_status && !["generated", "not_required"].includes(draft.media_status))}>
-                          {draft.status === "changes_requested" ? "Resubmit" : "Submit"}
+                          {draft.status === "rejected" ? "Resubmit" : "Submit"}
                         </button>
                       </>
                     )}
