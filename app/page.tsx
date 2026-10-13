@@ -169,6 +169,21 @@ export default function Home() {
 
   const router = useRouter();
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const integration = params.get("integration") || "";
+    const integrationError = params.get("integration_error") || "";
+    if (
+      integration.endsWith("_connected") ||
+      integrationError.startsWith("instagram_") ||
+      integrationError.startsWith("tiktok_") ||
+      integrationError.startsWith("linkedin_") ||
+      integrationError === "session_expired"
+    ) {
+      setTab("Social Accounts");
+    }
+  }, []);
+
   async function loadLearning(id = workspaceId) {
     if (!id) return;
     setLearningLoading(true);
