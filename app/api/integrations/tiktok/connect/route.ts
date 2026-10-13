@@ -21,8 +21,10 @@ export async function GET(request: Request) {
 
   const state = randomBytes(32).toString("base64url");
   const authUrl = new URL("https://www.tiktok.com/v2/auth/authorize/");
+  // Start with the minimum Login Kit scope. Add Content Posting scopes only
+  // when the corresponding product is configured and the posting flow is ready.
+  authUrl.searchParams.set("scope", "user.info.basic");
   authUrl.searchParams.set("client_key", clientKey);
-  authUrl.searchParams.set("scope", "user.info.basic,video.publish,video.upload");
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("redirect_uri", redirectUri);
   authUrl.searchParams.set("state", state);
