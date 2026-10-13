@@ -21,7 +21,7 @@ import {
   CreditCard,
   Link2,
 } from "lucide-react";
-import LinkedInIntegration from "@/app/components/linkedin-integration";
+import SocialAccountsPanel from "@/app/components/social-accounts-panel";
 import QuickStartGuide from "@/app/components/quick-start-guide";
 
 const navigation = [
@@ -976,7 +976,7 @@ export default function Home() {
           </div>
         )}
 
-        {tab === "Social Accounts" && <LinkedInIntegration workspaceId={workspaceId} />}
+        {tab === "Social Accounts" && <SocialAccountsPanel workspaceId={workspaceId} />}
 
         {tab === "Content Calendar" && (
           <div className="calendar-view">
