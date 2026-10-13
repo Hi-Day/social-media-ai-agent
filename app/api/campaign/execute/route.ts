@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { executeCampaignTask } from "@/lib/campaign-agent";
 import type { BrandContext } from "@/lib/agent";
 import { canExecuteCampaign } from "@/lib/campaign-permissions";
+import { enforceWorkspaceSubscription } from "@/lib/billing-entitlements";
 
 export async function POST(req: Request) {
   try {
@@ -37,6 +38,9 @@ export async function POST(req: Request) {
         { status: 403 },
       );
     }
+
+    const subscriptionGate = await enforceWorkspaceSubscription(supabase, workspaceId);
+    if (subscriptionGate) return subscriptionGate;
 
     const { data: campaign, error: campaignError } = await supabase
       .from("campaigns")
