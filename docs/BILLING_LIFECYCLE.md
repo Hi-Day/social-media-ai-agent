@@ -40,3 +40,17 @@ This is an implementation specification. No payment provider or live paid checko
 
 ## Commercial validation
 Do not set a plan price solely to reach a revenue target. Validate willingness to pay, gross margin, support burden, and retention with pilot customers. For a Rp30 million monthly revenue target, track number of paying accounts, average revenue per account, provider/model costs, payment fees, and churn.
+
+## Implemented billing foundation (2026-10-13)
+- Xendit is the initial provider adapter for Indonesia, using the hosted Payment Session subscription flow (API version `2026-01-01`).
+- Checkout prices and monthly credits are read only from server-side environment configuration; clients cannot submit amount or entitlements.
+- Workspace subscription records remain pending until a verified Xendit webhook arrives. Browser redirects never activate paid access.
+- Webhook sender verification uses Xendit's `x-callback-token`; events are stored idempotently by event/resource/time and amount/currency are checked before activation.
+- The initial integration still requires Xendit merchant credentials, configured webhook token, plan price/credit values, and sandbox checkout/webhook/refund tests. Do not enable public billing until those gates pass.
+
+
+## Runtime controls
+- Set `XENDIT_SECRET_API_KEY`, `XENDIT_WEBHOOK_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, and the public HTTPS app URL in server-side environment configuration.
+- Set the three `SOCIALOS_<PLAN>_PRICE_IDR` and `SOCIALOS_<PLAN>_MONTHLY_CREDITS` values only after pricing and unit economics are approved. The checkout endpoint ignores client-supplied prices/credits.
+- `BILLING_ENFORCEMENT_ENABLED` defaults to `false` so existing/demo workspaces are not unexpectedly locked out. Set it to `true` only after sandbox lifecycle tests pass; it gates caption generation, campaign execution, and Instagram/LinkedIn publishing.
+- The first billing slice does not yet include customer self-service cancellation, refunds, or a reconciliation job. Those remain launch gates.

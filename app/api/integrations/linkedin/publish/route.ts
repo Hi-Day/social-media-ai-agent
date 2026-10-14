@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { enforceWorkspaceSubscription } from "@/lib/billing-entitlements";
 import { decryptSocialToken } from "@/lib/social-token-crypto";
 import { isPublishableLinkedInDraft, isSocialTokenExpired } from "@/lib/linkedin-publish-guards";
 
@@ -21,6 +22,9 @@ export async function POST(request: Request) {
   if (!membership || !["owner", "admin"].includes(membership.role)) {
     return NextResponse.json({ error: "Workspace owner/admin permission required" }, { status: 403 });
   }
+
+  const subscriptionGate = await enforceWorkspaceSubscription(supabase, workspaceId);
+  if (subscriptionGate) return subscriptionGate;
 
   const { data: draft, error: draftError } = await supabase.from("content_drafts")
     .select("id, workspace_id, platform, caption, status").eq("id", draftId).eq("workspace_id", workspaceId).maybeSingle();
